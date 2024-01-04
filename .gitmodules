@@ -1,0 +1,3 @@
+[submodule "rust/spaghettinuum"]
+	path = rust/spaghettinuum
+	url = https://github.com/andrewbaxter/spaghettinuum.git

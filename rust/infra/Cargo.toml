@@ -1,0 +1,35 @@
+[package]
+name = "infra"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+enum-as-inner = "=0.5.1"
+terrars = "0.1.12"
+terrars-andrewbaxter-dinker = { version = "0.1.19", features = ["image"] }
+terrars-andrewbaxter-localrun = { version = "0.1.13", features = ["data_run"] }
+serde_json = "1.0.96"
+certifier = { path = "../certifier" }
+terrars-dnsimple-dnsimple = { version = "0.1.0", features = ["zone_record"] }
+terrars-hectorj-googlesiteverification = { version = "0.1.0", features = [
+    "dns",
+    "data_dns_token",
+] }
+terrars-hashicorp-google = { version = "0.1.0", path = "../../../terrars-hashicorp-google", features = [
+    "project_service",
+    "cloud_run_service",
+    "cloud_run_domain_mapping",
+    "cloud_run_service_iam_binding",
+    "artifact_registry_repository",
+    "artifact_registry_repository_iam_binding",
+    "service_account",
+    "service_account_key",
+    "kms_key_ring",
+    "kms_key_ring_iam_binding",
+    "kms_crypto_key",
+    "kms_crypto_key_iam_binding",
+    "storage_bucket",
+    "storage_bucket_iam_binding",
+] }
