@@ -26,6 +26,7 @@ use certifier::{
     enum_unwrap,
     ENV_SERVER_CONFIG,
     ServerConfig,
+    VERSION_STATE_ENABLED,
 };
 use chrono::{
     Utc,
@@ -106,15 +107,35 @@ async fn generate_cert(
     let (_, keys_info) =
         kms_client
             .projects()
-            .locations_key_rings_crypto_keys_get(kms_key_gcpid)
+            .locations_key_rings_crypto_keys_crypto_key_versions_list(kms_key_gcpid)
+            .filter(&format!("state={}", VERSION_STATE_ENABLED))
+            .page_size(2)
             .doit()
             .await
             .log_context(log, "Failed to get keys info")?;
-    let primary = keys_info.primary.log_context(log, "No primary key set in keys, can't sign")?.name.unwrap();
+    let mut keys_info =
+        keys_info
+            .crypto_key_versions
+            .log_context(log, "Missing items in crypto key version list response")?
+            .into_iter()
+            .filter_map(|k| match (k.create_time, k.name) {
+                (Some(t), Some(n)) => Some((t, n)),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+    keys_info.sort_by_cached_key(|k| k.0);
+    let current_full_id =
+        keys_info
+            .pop()
+            .log_context(
+                log,
+                "No primary key set in keys, can't sign (keys missing critical fields in response may have been filtered)",
+            )?
+            .1;
     let (_, pubkey) =
         kms_client
             .projects()
-            .locations_key_rings_crypto_keys_crypto_key_versions_get_public_key(&primary)
+            .locations_key_rings_crypto_keys_crypto_key_versions_get_public_key(&current_full_id)
             .doit()
             .await
             .log_context(log, "Failed to get public key")?;
@@ -146,7 +167,7 @@ async fn generate_cert(
                     spki_compute_digest(&ca_spki, &csr_der).log_context(log, "Error generating digest to sign CSR")?,
                 ),
                 ..Default::default()
-            }, kms_key_gcpid)
+            }, &current_full_id)
             .doit()
             .await
             .log_context(log, "Error signing new CA cert CSR")?

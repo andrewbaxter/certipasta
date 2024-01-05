@@ -39,6 +39,10 @@ use x509_cert::{
 
 pub const ENV_ROTATE_CONFIG: &'static str = "CERTIPASTA_ROTATE_CONFIG";
 pub const ENV_SERVER_CONFIG: &'static str = "CERTIPASTA_CONFIG";
+pub const VERSION_STATE_ENABLED: &'static str = "ENABLED";
+pub const VERSION_STATE_DISABLED: &'static str = "DISABLED";
+pub const VERSION_STATE_DESTROY_SCHEDULED: &'static str = "DESTROY_SCHEDULED";
+pub const VERSION_STATE_DESTROYED: &'static str = "DESTROYED";
 
 #[derive(Serialize, Deserialize)]
 pub struct RotateConfig {
@@ -64,7 +68,7 @@ pub fn rotation_buffer() -> Duration {
 }
 
 pub fn ca_rdn() -> RdnSequence {
-    return RdnSequence::from_str("CN=certifiedpasta,O=andrewbaxter").unwrap();
+    return RdnSequence::from_str("CN=certipasta,O=andrewbaxter").unwrap();
 }
 
 pub fn rand_serial() -> SerialNumber {
