@@ -1295,7 +1295,9 @@ dependencies = [
 
 [[package]]
 name = "google-apis-common"
-version = "6.0.0"
+version = "6.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "34c72c9baded4d06742eaaa5def6158f9e28d20a679ad1d5f5deb2bae8358052"
 dependencies = [
  "base64 0.13.1",
  "chrono",
@@ -1315,6 +1317,8 @@ dependencies = [
 [[package]]
 name = "google-cloudkms1"
 version = "5.0.3+20230106"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9452e6b25b5aff4268dfd2806b0caa5ea4abc84534895eb74220a9e59c1ddf1a"
 dependencies = [
  "anyhow",
  "google-apis-common",
@@ -1333,6 +1337,8 @@ dependencies = [
 [[package]]
 name = "google-storage1"
 version = "5.0.3+20230119"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a818191c0e1c35545aa210165324b2e7a00389f2eb42f94ef62c8b68ca862b95"
 dependencies = [
  "anyhow",
  "google-apis-common",
@@ -3210,6 +3216,7 @@ dependencies = [
 [[package]]
 name = "terrars-hashicorp-google"
 version = "0.1.0"
+source = "git+https://github.com/andrewbaxter/terrars-hashicorp-google#f897fa593c1a777b66fcdd93728c00cba65e9823"
 dependencies = [
  "serde",
  "serde_json",

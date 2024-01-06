@@ -8,8 +8,8 @@ edition = "2021"
 [dependencies]
 chrono = { version = "0.4.31", features = ["serde"] }
 der = "0.7.8"
-google-cloudkms1 = { version = "5.0.3", path = "../../../../soft/fork-google-apis-rs/gen/cloudkms1" }
-google-storage1 = { version = "5.0.3", path = "../../../../soft/fork-google-apis-rs/gen/storage1" }
+google-cloudkms1 = "5.0.3"
+google-storage1 = "5.0.3"
 hyper = { version = "^0", features = ["client"] }
 hyper-rustls = { version = "0.24.2", features = ["webpki-roots"] }
 loga = "0.1.7"
@@ -32,3 +32,8 @@ aargvark = { version = "0.0.7" }
 governor = "0.6.0"
 rand = "0.8.5"
 sec1 = "0.7.3"
+
+[patch.crates-io]
+google-apis-common = { git = "https://github.com/andrewbaxter/fork-google-apis-rs", rev = "f1b7790c482798ffefddc80dd8be8025aec286fa" }
+google-cloudkms1 = { git = "https://github.com/andrewbaxter/fork-google-apis-rs", rev = "f1b7790c482798ffefddc80dd8be8025aec286fa" }
+google-storage1 = { git = "https://github.com/andrewbaxter/fork-google-apis-rs", rev = "f1b7790c482798ffefddc80dd8be8025aec286fa" }

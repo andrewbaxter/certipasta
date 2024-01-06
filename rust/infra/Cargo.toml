@@ -17,7 +17,7 @@ terrars-hectorj-googlesiteverification = { version = "0.1.0", features = [
     "dns",
     "data_dns_token",
 ] }
-terrars-hashicorp-google = { version = "0.1.0", path = "../../../terrars-hashicorp-google", features = [
+terrars-hashicorp-google = { version = "0.1.0", git = "https://github.com/andrewbaxter/terrars-hashicorp-google", reference = "f897fa593c1a777b66fcdd93728c00cba65e9823", features = [
     "project_service",
     "cloud_run_service",
     "cloud_run_domain_mapping",
@@ -33,4 +33,7 @@ terrars-hashicorp-google = { version = "0.1.0", path = "../../../terrars-hashico
     "storage_bucket",
     "storage_bucket_iam_binding",
 ] }
-terrars-integrations-github = { version = "0.1.0", features = ["actions_secret", "data_actions_public_key"] }
+terrars-integrations-github = { version = "0.1.0", features = [
+    "actions_secret",
+    "data_actions_public_key",
+] }
