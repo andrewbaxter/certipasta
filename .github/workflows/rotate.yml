@@ -1,11 +1,10 @@
-name: Main
+name: Rotate root certs
 on:
   workflow_dispatch:
   schedule:
     - cron: '0 0 10 1 *'
 jobs:
   rotate-root-certs:
-    name: Rotate root certs
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
