@@ -21,8 +21,9 @@ jobs:
         with:
           toolchain: stable
       - run: |
+          set -xeu
           echo '${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}' > google_creds.json
-          export GOOGLE_APPLICATION_CREDENTIALS="$(cwd)/google_creds.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$(pwd)/google_creds.json"
           cargo run --manifest-path rust/certifier/Cargo.toml --bin certifier-rotate
         env:
           CERTIPASTA_ROTATE_CONFIG: ${{ vars.CERTIPASTA_ROTATE_CONFIG }}
