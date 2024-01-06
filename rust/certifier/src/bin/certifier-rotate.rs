@@ -493,7 +493,7 @@ async fn main() {
         // Wait for transactions with the old current key to finish...
         if let Some(old_current) = old_current {
             log.info(
-                "Waiting for outstanding requests to finish before deactivating old current version",
+                "Waiting for a fixed period to allow outstanding requests to finish before deactivating old current version",
                 ea!(id = old_current.0.borrow().version_short_id),
             );
             sleep(Duration::minutes(1).to_std().unwrap()).await;
