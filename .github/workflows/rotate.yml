@@ -20,7 +20,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
-      - run: cargo run --manifest-path rust/certifier/Cargo.toml --bin certipasta-rotate
+      - run: cargo run --manifest-path rust/certifier/Cargo.toml --bin certifier-rotate
       - uses: actions/upload-artifact@v4
         with:
           name: root_certs
