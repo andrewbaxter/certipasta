@@ -1,0 +1,21 @@
+name: Main
+on:
+  schedule:
+    - cron: '0 0 10 1 *'
+jobs:
+  rotate-root-certs:
+    name: Rotate root certs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - run: cargo run --bin certipasta-rotate
