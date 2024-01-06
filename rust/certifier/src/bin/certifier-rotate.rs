@@ -218,7 +218,7 @@ async fn generate_version(
         .upload_resumable(Cursor::new(ca_pem.as_bytes()), Mime::from_str("application/x-pem-file").unwrap())
         .await
         .log_context_with(log, "Error uploading new cert", ea!(bucket = bucket_gcpid))?;
-    println!("\nNew root cert:\n{}", ca_pem);
+    eprintln!("\nNew root cert:\n{}", ca_pem);
 
     // Update view + return
     let version = ViewVersion(Rc::new(RefCell::new(ViewVersion_ {

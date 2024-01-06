@@ -19,6 +19,7 @@ use terrars::{
     tf_trim_prefix,
     tf_substr,
     tf_trim_suffix,
+    tf_base64decode,
 };
 use terrars_andrewbaxter_dinker::{
     BuildImage,
@@ -66,6 +67,7 @@ use terrars_integrations_github::{
     BuildDataActionsPublicKey,
     BuildActionsSecret,
     BuildProviderGithub,
+    BuildActionsVariable,
 };
 
 fn main() {
@@ -363,15 +365,19 @@ fn main() {
             tf_id: "zC8XOM7EC".into(),
             repository: gh_repo.into(),
             secret_name: "GOOGLE_APPLICATION_CREDENTIALS".into(),
-        }.build(stack).depends_on(&gh_key).set_plaintext_value(pipeline_creds.private_key());
-        BuildActionsSecret {
+        }
+            .build(stack)
+            .depends_on(&gh_key)
+            .set_plaintext_value(tf_base64decode(stack, pipeline_creds.private_key()));
+        BuildActionsVariable {
             tf_id: "zBHQB8EZ9".into(),
             repository: gh_repo.into(),
-            secret_name: ENV_ROTATE_CONFIG.into(),
-        }.build(stack).depends_on(&gh_key).set_plaintext_value(serde_json::to_string(&RotateConfig {
-            key_gcpid: gks_key.id().to_string(),
-            bucket: certs_bucket.name().into(),
-        }).unwrap());
+            variable_name: ENV_ROTATE_CONFIG.into(),
+            value: serde_json::to_string(&RotateConfig {
+                key_gcpid: gks_key.id().to_string(),
+                bucket: certs_bucket.name().into(),
+            }).unwrap().into(),
+        }.build(stack);
 
         // Save the stack file
         fs::write(tf_root.join("stack.tf.json"), stack.serialize(&tf_root.join("state.json")).unwrap()).unwrap();

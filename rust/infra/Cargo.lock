@@ -3216,7 +3216,7 @@ dependencies = [
 [[package]]
 name = "terrars-hashicorp-google"
 version = "0.1.0"
-source = "git+https://github.com/andrewbaxter/terrars-hashicorp-google#f897fa593c1a777b66fcdd93728c00cba65e9823"
+source = "git+https://github.com/andrewbaxter/terrars-hashicorp-google?rev=f897fa593c1a777b66fcdd93728c00cba65e9823#f897fa593c1a777b66fcdd93728c00cba65e9823"
 dependencies = [
  "serde",
  "serde_json",
