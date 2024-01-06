@@ -14,12 +14,12 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            target
+            rust/certifier/target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
-      - run: cargo run --bin certipasta-rotate
+      - run: cargo run --manifest-path rust/certifier/Cargo.toml --bin certipasta-rotate
       - uses: actions/upload-artifact@v4
         with:
           name: root_certs
