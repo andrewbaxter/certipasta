@@ -1261,7 +1261,7 @@ dependencies = [
 [[package]]
 name = "google-apis-common"
 version = "6.0.0"
-source = "git+https://github.com/andrewbaxter/fork-google-apis-rs?rev=f1b7790c482798ffefddc80dd8be8025aec286fa#f1b7790c482798ffefddc80dd8be8025aec286fa"
+source = "git+https://github.com/andrewbaxter/fork-google-apis-rs?rev=c15eaa01b3c337f69803b4f53cbf938168035a21#c15eaa01b3c337f69803b4f53cbf938168035a21"
 dependencies = [
  "base64 0.13.1",
  "chrono",
@@ -1281,7 +1281,7 @@ dependencies = [
 [[package]]
 name = "google-cloudkms1"
 version = "5.0.3+20230106"
-source = "git+https://github.com/andrewbaxter/fork-google-apis-rs?rev=f1b7790c482798ffefddc80dd8be8025aec286fa#f1b7790c482798ffefddc80dd8be8025aec286fa"
+source = "git+https://github.com/andrewbaxter/fork-google-apis-rs?rev=c15eaa01b3c337f69803b4f53cbf938168035a21#c15eaa01b3c337f69803b4f53cbf938168035a21"
 dependencies = [
  "anyhow",
  "google-apis-common",
@@ -1300,7 +1300,7 @@ dependencies = [
 [[package]]
 name = "google-storage1"
 version = "5.0.3+20230119"
-source = "git+https://github.com/andrewbaxter/fork-google-apis-rs?rev=f1b7790c482798ffefddc80dd8be8025aec286fa#f1b7790c482798ffefddc80dd8be8025aec286fa"
+source = "git+https://github.com/andrewbaxter/fork-google-apis-rs?rev=c15eaa01b3c337f69803b4f53cbf938168035a21#c15eaa01b3c337f69803b4f53cbf938168035a21"
 dependencies = [
  "anyhow",
  "google-apis-common",

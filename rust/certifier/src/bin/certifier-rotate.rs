@@ -470,7 +470,7 @@ async fn main() {
                 state: Some(VERSION_STATE_ENABLED.to_string()),
                 ..Default::default()
             }, &view.versions[&current.0.borrow().version_short_id].0.borrow().full_id)
-            .update_mask(FieldMask(vec!["state".to_string()]))
+            .update_mask(FieldMask::new(&["state"]))
             .doit()
             .await
             .log_context(log, "Error disabling old current key version")?;
@@ -503,7 +503,7 @@ async fn main() {
                     state: Some(VERSION_STATE_DISABLED.to_string()),
                     ..Default::default()
                 }, &view.versions[&old_current.0.borrow().version_short_id].0.borrow().full_id)
-                .update_mask(FieldMask(vec!["state".to_string()]))
+                .update_mask(FieldMask::new(&["state"]))
                 .doit()
                 .await
                 .log_context(log, "Error disabling old current key version")?;
