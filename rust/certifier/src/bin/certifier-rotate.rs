@@ -571,7 +571,7 @@ async fn main() {
         }
 
         // Build CA bundle artifact
-        let artifacts_root = PathBuf::from("artifacts");
+        let artifacts_root = PathBuf::from("artifact");
         create_dir_all(&artifacts_root).await.log_context(log, "Error creating artifacts dir")?;
         for o in view.objects {
             let o0 = o.0.borrow();
