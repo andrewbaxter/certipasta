@@ -1654,6 +1654,7 @@ dependencies = [
  "terrars-dnsimple-dnsimple",
  "terrars-hashicorp-google",
  "terrars-hectorj-googlesiteverification",
+ "terrars-integrations-github",
 ]
 
 [[package]]
@@ -3220,6 +3221,17 @@ name = "terrars-hectorj-googlesiteverification"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2ecec665e6852f9f29dbcc104e74bdd2adeb8bd2e434bd9384a2c485b0daab55"
+dependencies = [
+ "serde",
+ "serde_json",
+ "terrars",
+]
+
+[[package]]
+name = "terrars-integrations-github"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "407a671b0ebb288b073dd85ef9ccaeb6ea7e12b81bc174d68d261a889cf3e2a0"
 dependencies = [
  "serde",
  "serde_json",

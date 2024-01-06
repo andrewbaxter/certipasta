@@ -33,3 +33,4 @@ terrars-hashicorp-google = { version = "0.1.0", path = "../../../terrars-hashico
     "storage_bucket",
     "storage_bucket_iam_binding",
 ] }
+terrars-integrations-github = { version = "0.1.0", features = ["actions_secret", "data_actions_public_key"] }

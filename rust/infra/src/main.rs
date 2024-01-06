@@ -9,6 +9,8 @@ use std::{
 use certifier::{
     ServerConfig,
     ENV_SERVER_CONFIG,
+    ENV_ROTATE_CONFIG,
+    RotateConfig,
 };
 use terrars::{
     primvec,
@@ -60,6 +62,11 @@ use terrars_hectorj_googlesiteverification::{
     BuildDataDnsToken,
     BuildDns,
 };
+use terrars_integrations_github::{
+    BuildDataActionsPublicKey,
+    BuildActionsSecret,
+    BuildProviderGithub,
+};
 
 fn main() {
     let root =
@@ -89,6 +96,7 @@ fn main() {
 
         // Input vars
         let dnsimple_token = &BuildVariable { tf_id: "dnsimple_token".into() }.build(stack).set_sensitive(true);
+        let github_token = &BuildVariable { tf_id: "github_token".into() }.build(stack).set_sensitive(true);
         let google_creds = String::from_utf8(read(tf_root.join("google_creds.json")).unwrap()).unwrap();
 
         // Auth
@@ -99,6 +107,7 @@ fn main() {
         BuildProviderDnsimple {}.build(stack).set_account("139852").set_token(dnsimple_token);
         BuildProviderGoogle {}.build(stack).set_credentials(&google_creds).set_project(project);
         BuildProviderGooglesiteverification {}.build(stack).set_credentials(&google_creds);
+        BuildProviderGithub {}.build(stack).set_token(github_token);
 
         // Project generally
         let enable_gcp_resource_api = BuildProjectService {
@@ -119,7 +128,7 @@ fn main() {
             tf_id: "zLM19FMHZ".into(),
             account_id: "pipelines".into(),
         }.build(stack).depends_on(&enable_gcp_iam_api);
-        BuildServiceAccountKey {
+        let pipeline_creds = BuildServiceAccountKey {
             tf_id: "zZGDIU2PD".into(),
             service_account_id: pipeline_service_account.id().into(),
         }.build(stack);
@@ -332,9 +341,8 @@ fn main() {
                 .depends_on(&verification)
                 .set_spec(vec![BuildCloudRunDomainMappingSpecEl { route_name: run_service.name().into() }.build()])
                 .set_metadata(vec![BuildCloudRunDomainMappingMetadataEl { namespace: project.into() }.build()]);
-
-        // Always 8? Not documented
         for i in 0 .. 8 {
+            // Always 8? Not documented
             let mapping_rec = run_domain_mapping.status().get(0).resource_records().get(i);
             BuildZoneRecord {
                 tf_id: format!("zX1MU5YOQ-{}", i).into(),
@@ -344,6 +352,26 @@ fn main() {
                 value: mapping_rec.rrdata().into(),
             }.build(stack).set_ttl(180f64);
         }
+
+        // Github secrets
+        let gh_repo = "certipasta";
+        let gh_key = BuildDataActionsPublicKey {
+            tf_id: "zQ2EPSYFQ".into(),
+            repository: gh_repo.into(),
+        }.build(stack);
+        BuildActionsSecret {
+            tf_id: "zC8XOM7EC".into(),
+            repository: gh_repo.into(),
+            secret_name: "GOOGLE_APPLICATION_CREDENTIALS".into(),
+        }.build(stack).depends_on(&gh_key).set_plaintext_value(pipeline_creds.private_key());
+        BuildActionsSecret {
+            tf_id: "zBHQB8EZ9".into(),
+            repository: gh_repo.into(),
+            secret_name: ENV_ROTATE_CONFIG.into(),
+        }.build(stack).depends_on(&gh_key).set_plaintext_value(serde_json::to_string(&RotateConfig {
+            key_gcpid: gks_key.id().to_string(),
+            bucket: certs_bucket.name().into(),
+        }).unwrap());
 
         // Save the stack file
         fs::write(tf_root.join("stack.tf.json"), stack.serialize(&tf_root.join("state.json")).unwrap()).unwrap();
