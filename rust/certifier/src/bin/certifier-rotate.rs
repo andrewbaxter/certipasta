@@ -591,9 +591,18 @@ async fn main() {
             }
             let body =
                 hyper::body::to_bytes(resp.into_body()).await.log_context(log, "Error downloading cert body")?;
-            write(artifacts_root.join(format!("spaghettinuum_s_{}.pem", o0.create_time)), body)
-                .await
-                .log_context(log, "Error writing active cert PEM")?;
+            write(
+                artifacts_root.join(
+                    format!(
+                        "spaghettinuum_s_{}.pem",
+                        o0.create_time.to_rfc3339().replace(" ", "_").replace(|c| match c {
+                            'a' ..= 'z' | 'A' ..= 'Z' | '0' ..= '9' | '_' | '-' => false,
+                            _ => true,
+                        }, "-")
+                    ),
+                ),
+                body,
+            ).await.log_context(log, "Error writing active cert PEM")?;
         }
         return Ok(());
     }
