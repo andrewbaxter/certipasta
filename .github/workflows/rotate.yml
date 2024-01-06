@@ -20,9 +20,11 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
-      - run: cargo run --manifest-path rust/certifier/Cargo.toml --bin certifier-rotate
+      - run: |
+          echo '${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}' > google_creds.json
+          export GOOGLE_APPLICATION_CREDENTIALS="$(cwd)/google_creds.json"
+          cargo run --manifest-path rust/certifier/Cargo.toml --bin certifier-rotate
         env:
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
           CERTIPASTA_ROTATE_CONFIG: ${{ vars.CERTIPASTA_ROTATE_CONFIG }}
       - uses: actions/upload-artifact@v4
         with:
