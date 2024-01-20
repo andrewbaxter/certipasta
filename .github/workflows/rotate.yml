@@ -15,7 +15,7 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            rust/certifier/target
+            software/certifier/target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - uses: actions-rs/toolchain@v1
         with:
@@ -26,7 +26,7 @@ jobs:
           cat > $GOOGLE_APPLICATION_CREDENTIALS << 'PRINCELY_EXCITED'
           ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
           PRINCELY_EXCITED
-          cargo run --manifest-path rust/certifier/Cargo.toml --bin certifier-rotate
+          cargo run --manifest-path software/certifier/Cargo.toml --bin certifier-rotate
         env:
           CERTIPASTA_ROTATE_CONFIG: ${{ vars.CERTIPASTA_ROTATE_CONFIG }}
       - uses: actions/upload-artifact@v4
