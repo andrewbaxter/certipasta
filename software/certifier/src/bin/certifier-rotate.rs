@@ -3,7 +3,6 @@ use std::{
         Cursor,
     },
     str::FromStr,
-    path::PathBuf,
     collections::{
         HashMap,
         HashSet,
@@ -31,6 +30,8 @@ use certifier::{
     VERSION_STATE_DESTROYED,
     VERSION_STATE_ENABLED,
     decide_sig,
+    INFO,
+    WARN,
 };
 use chrono::{
     DateTime,
@@ -60,11 +61,12 @@ use loga::{
     ResultContext,
     ea,
     DebugDisplay,
+    StandardLog,
+    ErrContext,
 };
 use mime::Mime;
 use tokio::{
     fs::{
-        create_dir_all,
         write,
     },
     time::sleep,
@@ -134,7 +136,7 @@ struct View {
 }
 
 async fn generate_version(
-    log: &loga::Log,
+    log: &loga::StandardLog,
     kms_client: &CloudKMS<HttpsConnector<HttpConnector>>,
     storage_client: &Storage<HttpsConnector<HttpConnector>>,
     key_gcpid: &str,
@@ -147,7 +149,7 @@ async fn generate_version(
     let (_, version) = kms_client.projects().locations_key_rings_crypto_keys_crypto_key_versions_create(CryptoKeyVersion {
         state: Some(VERSION_STATE_DISABLED.to_string()),
         ..Default::default()
-    }, key_gcpid).doit().await.log_context(log, "Error rotating key")?;
+    }, key_gcpid).doit().await.stack_context(log, "Error rotating key")?;
     let ver_full_id = version.name.unwrap();
     let ver_short_id = get_ver_short_id(&ver_full_id)?;
     let (_, ca_pubkey) =
@@ -156,7 +158,7 @@ async fn generate_version(
             .locations_key_rings_crypto_keys_crypto_key_versions_get_public_key(&ver_full_id)
             .doit()
             .await
-            .log_context(log, "Failed to get new public key")?;
+            .stack_context(log, "Failed to get new public key")?;
 
     // Build CA cert
     let ca_keyinfo = SubjectPublicKeyInfoOwned::from_pem(&ca_pubkey.pem.unwrap()).unwrap();
@@ -196,16 +198,16 @@ async fn generate_version(
             }, &ver_full_id)
             .doit()
             .await
-            .log_context(log, "Error signing new CA cert CSR")?
+            .stack_context(log, "Error signing new CA cert CSR")?
             .1
             .signature
-            .log_context(log, "Signing request response missing signature data")?;
+            .stack_context(log, "Signing request response missing signature data")?;
     let cert_pem =
         cert_builder
-            .assemble(BitString::from_bytes(&signature).log_context(log, "Error building signature bitstring")?)
-            .log_context(log, "Error assembling cert")?
+            .assemble(BitString::from_bytes(&signature).stack_context(log, "Error building signature bitstring")?)
+            .stack_context(log, "Error assembling cert")?
             .to_pem(der::pem::LineEnding::LF)
-            .log_context(log, "Error building PEM for cert")?;
+            .stack_context(log, "Error building PEM for cert")?;
 
     // Log and store
     storage_client
@@ -216,7 +218,7 @@ async fn generate_version(
         }, &bucket_gcpid)
         .upload_resumable(Cursor::new(cert_pem.as_bytes()), Mime::from_str("application/x-pem-file").unwrap())
         .await
-        .log_context_with(log, "Error uploading new cert", ea!(bucket = bucket_gcpid))?;
+        .stack_context_with(log, "Error uploading new cert", ea!(bucket = bucket_gcpid))?;
     eprintln!("\nNew root cert:\n{}", cert_pem);
 
     // Update view + return
@@ -240,7 +242,7 @@ async fn generate_version(
 async fn main() {
     async fn inner() -> Result<(), loga::Error> {
         let args = aargvark::vark::<Args>();
-        let log = &loga::new(loga::Level::Info);
+        let log = &StandardLog::new().with_flags(WARN | INFO);
         let config = if let Some(p) = args.config {
             p.value
         } else if let Some(c) = match std::env::var(ENV_ROTATE_CONFIG) {
@@ -253,10 +255,10 @@ async fn main() {
             },
         } {
             let log = log.fork(ea!(source = "env"));
-            serde_json::from_str::<RotateConfig>(&c).log_context(&log, "Parsing config")?
+            serde_json::from_str::<RotateConfig>(&c).stack_context(&log, "Parsing config")?
         } else {
             return Err(
-                log.new_err_with(
+                log.err_with(
                     "No config passed on command line, and no config set in env var",
                     ea!(env = ENV_ROTATE_CONFIG),
                 ),
@@ -297,24 +299,27 @@ async fn main() {
                 if let Some(after) = after {
                     req = req.page_token(&after);
                 }
-                let (_, page) = req.doit().await.log_context(log, "Failed to retrieve cert bucket page")?;
+                let (_, page) = req.doit().await.stack_context(log, "Failed to retrieve cert bucket page")?;
                 let Some(new_objects) = page.items else {
                     break;
                 };
                 for v in new_objects {
                     let Some(id) = v.name else {
-                        log.warn("Received obj missing name/id! Skipping...", ea!());
+                        log.log(WARN, "Received obj missing name/id! Skipping...");
                         continue;
                     };
                     let metadata = v.metadata.unwrap_or_default();
                     let create_time =
-                        v.time_created.log_context(log, "Missing created time for object from gcp api")?;
+                        v.time_created.stack_context(log, "Missing created time for object from gcp api")?;
                     let issue_start = match metadata.get(TAG_ISSUE_START) {
                         Some(tag_value) => {
                             match DateTime::parse_from_rfc3339(tag_value.as_str()) {
                                 Ok(stamp) => Some(<DateTime<Utc>>::from(stamp)),
                                 Err(e) => {
-                                    log.warn_e(e.into(), "Error parsing tag", ea!(tag = TAG_ISSUE_START));
+                                    log.log_err(
+                                        WARN,
+                                        e.context_with("Error parsing tag", ea!(tag = TAG_ISSUE_START)),
+                                    );
                                     continue;
                                 },
                             }
@@ -328,7 +333,10 @@ async fn main() {
                             match DateTime::parse_from_rfc3339(tag_value.as_str()) {
                                 Ok(stamp) => Some(<DateTime<Utc>>::from(stamp)),
                                 Err(e) => {
-                                    log.warn_e(e.into(), "Error parsing tag", ea!(tag = TAG_ISSUE_END));
+                                    log.log_err(
+                                        WARN,
+                                        e.context_with("Error parsing tag", ea!(tag = TAG_ISSUE_END)),
+                                    );
                                     continue;
                                 },
                             }
@@ -337,7 +345,8 @@ async fn main() {
                             None
                         },
                     };
-                    log.info(
+                    log.log_with(
+                        INFO,
                         "Surveying, found cert",
                         ea!(id = id, issue_start = issue_start.dbg_str(), issue_end = issue_end.dbg_str()),
                     );
@@ -367,24 +376,24 @@ async fn main() {
                     req = req.page_token(&after);
                 }
                 let (_, page) =
-                    req.doit().await.log_context(log, "Failed to retrieve key versions to update to semi-latest")?;
+                    req.doit().await.stack_context(log, "Failed to retrieve key versions to update to semi-latest")?;
                 let Some(new_versions) = page.crypto_key_versions else {
                     break;
                 };
                 for v in new_versions {
                     let Some(state) = v.state else {
-                        log.warn("Received version missing state! Skipping...", ea!());
+                        log.log(WARN, "Received version missing state! Skipping...");
                         continue;
                     };
                     if state == VERSION_STATE_DESTROY_SCHEDULED || state == VERSION_STATE_DESTROYED {
                         continue;
                     }
                     let Some(full_id) = v.name else {
-                        log.warn("Received version missing name/id! Skipping...", ea!());
+                        log.log(WARN, "Received version missing name/id! Skipping...");
                         continue;
                     };
                     let short_id = get_ver_short_id(&full_id)?;
-                    log.info("Surveying, found key version", ea!(id = short_id, state = state));
+                    log.log_with(INFO, "Surveying, found key version", ea!(id = short_id, state = state));
                     view.versions.insert(short_id.clone(), ViewVersion(Rc::new(RefCell::new(ViewVersion_ {
                         full_id: full_id,
                         short_id: short_id,
@@ -408,7 +417,7 @@ async fn main() {
                 if o1.issue_start.is_some() && o1.issue_end.is_none() &&
                     view.versions.contains_key(&o1.version_short_id) {
                     old_current = Some(o.clone());
-                    log.info("Selected old current key version", ea!(id = o1.version_short_id));
+                    log.log_with(INFO, "Selected old current key version", ea!(id = o1.version_short_id));
                     offset = i + 1;
                     break;
                 }
@@ -418,7 +427,7 @@ async fn main() {
                 let o1 = o.0.borrow();
                 if o1.issue_start.is_none() && o1.issue_end.is_none() &&
                     view.versions.contains_key(&o1.version_short_id) {
-                    log.info("Selected current key version", ea!(id = o1.version_short_id));
+                    log.log_with(INFO, "Selected current key version", ea!(id = o1.version_short_id));
                     current = Some(o.clone());
                     break;
                 }
@@ -427,7 +436,7 @@ async fn main() {
                 let o1 = o.0.borrow();
                 if !o1.issue_start.is_some() && !o1.issue_end.is_some() &&
                     view.versions.contains_key(&o1.version_short_id) {
-                    log.info("Selected next key version", ea!(id = o1.version_short_id));
+                    log.log_with(INFO, "Selected next key version", ea!(id = o1.version_short_id));
                     next = Some(o.clone());
                     break;
                 }
@@ -437,7 +446,7 @@ async fn main() {
         // # Ensure a current version, enable the key and mark it as having started use
         let current = match current {
             None => {
-                log.info("No available current key version, creating", ea!());
+                log.log(INFO, "No available current key version, creating");
                 generate_version(
                     log,
                     &kms_client,
@@ -449,7 +458,7 @@ async fn main() {
             },
             Some(current) => {
                 if next.is_none() {
-                    log.info("No available next key version, creating", ea!());
+                    log.log(INFO, "No available next key version, creating");
                     generate_version(
                         log,
                         &kms_client,
@@ -462,7 +471,7 @@ async fn main() {
                 current
             },
         };
-        log.info("Activating selected current key version", ea!(id = current.0.borrow().version_short_id));
+        log.log_with(INFO, "Activating selected current key version", ea!(id = current.0.borrow().version_short_id));
         kms_client
             .projects()
             .locations_key_rings_crypto_keys_crypto_key_versions_patch(CryptoKeyVersion {
@@ -472,7 +481,7 @@ async fn main() {
             .update_mask(FieldMask::new(&["state"]))
             .doit()
             .await
-            .log_context(log, "Error disabling old current key version")?;
+            .stack_context(log, "Error disabling old current key version")?;
         storage_client
             .objects()
             .update(Object {
@@ -485,13 +494,14 @@ async fn main() {
             }, &config.bucket, &current.0.borrow().object_key)
             .doit()
             .await
-            .log_context(log, "Failed to set new current version issue start tag")?;
+            .stack_context(log, "Failed to set new current version issue start tag")?;
 
         // # Disable the old current
         //
         // Wait for transactions with the old current key to finish...
         if let Some(old_current) = old_current {
-            log.info(
+            log.log_with(
+                INFO,
                 "Waiting for a fixed period to allow outstanding requests to finish before deactivating old current version",
                 ea!(id = old_current.0.borrow().version_short_id),
             );
@@ -505,7 +515,7 @@ async fn main() {
                 .update_mask(FieldMask::new(&["state"]))
                 .doit()
                 .await
-                .log_context(log, "Error disabling old current key version")?;
+                .stack_context(log, "Error disabling old current key version")?;
             let end_time = Utc::now();
             storage_client
                 .objects()
@@ -519,7 +529,7 @@ async fn main() {
                 }, &config.bucket, &old_current.0.borrow().object_key)
                 .doit()
                 .await
-                .log_context(log, "Failed to set old current version issue end tag")?;
+                .stack_context(log, "Failed to set old current version issue end tag")?;
             old_current.0.borrow_mut().issue_end = Some(end_time);
         }
 
@@ -538,13 +548,13 @@ async fn main() {
                 keep_objects.push(o);
                 continue;
             }
-            log.info("Deleting obsolete cert", ea!(id = o.0.borrow().version_short_id));
+            log.log_with(INFO, "Deleting obsolete cert", ea!(id = o.0.borrow().version_short_id));
             storage_client
                 .objects()
                 .delete(&config.bucket, &o1.object_key)
                 .doit()
                 .await
-                .log_context_with(log, "Error deleting expired cert object", ea!(id = o1.object_key))?;
+                .stack_context_with(log, "Error deleting expired cert object", ea!(id = o1.object_key))?;
         }
         view.objects = keep_objects;
         let mut active_versions = HashSet::new();
@@ -557,7 +567,7 @@ async fn main() {
             if active_versions.contains(&v0.short_id) {
                 continue;
             }
-            log.info("Deleting unrooted key version", ea!(id = v.0.borrow().short_id));
+            log.log_with(INFO, "Deleting unrooted key version", ea!(id = v.0.borrow().short_id));
             kms_client
                 .projects()
                 .locations_key_rings_crypto_keys_crypto_key_versions_destroy(
@@ -566,16 +576,15 @@ async fn main() {
                 )
                 .doit()
                 .await
-                .log_context_with(log, "Failed to destroy old key", ea!(id = v0.short_id))?;
+                .stack_context_with(log, "Failed to destroy old key", ea!(id = v0.short_id))?;
         }
 
         // Build CA bundle artifact
-        let artifacts_root = PathBuf::from("artifact");
-        create_dir_all(&artifacts_root).await.log_context(log, "Error creating artifacts dir")?;
+        let mut certs = vec![];
         for o in view.objects {
             let o0 = o.0.borrow();
             let log = &log.fork(ea!(id = o0.object_key));
-            log.info("Adding cert to artifact bundle", ea!());
+            log.log(INFO, "Adding cert to artifact bundle");
             let resp =
                 storage_client
                     .objects()
@@ -583,26 +592,28 @@ async fn main() {
                     .param("alt", "media")
                     .doit()
                     .await
-                    .log_context(log, "Error requesting cert from bucket")?
+                    .stack_context(log, "Error requesting cert from bucket")?
                     .0;
             if !resp.status().is_success() {
-                return Err(log.new_err("Received error response to request for cert"))
+                return Err(log.err("Received error response to request for cert"))
             }
-            let body =
-                hyper::body::to_bytes(resp.into_body()).await.log_context(log, "Error downloading cert body")?;
-            write(
-                artifacts_root.join(
-                    format!(
-                        "spaghettinuum_s_{}.pem",
-                        o0.create_time.to_rfc3339().replace(" ", "_").replace(|c| match c {
-                            'a' ..= 'z' | 'A' ..= 'Z' | '0' ..= '9' | '_' | '-' => false,
-                            _ => true,
-                        }, "-")
-                    ),
-                ),
-                body,
-            ).await.log_context(log, "Error writing active cert PEM")?;
+            let mut body =
+                hyper::body::to_bytes(resp.into_body())
+                    .await
+                    .stack_context(log, "Error downloading cert body")?
+                    .to_vec();
+            if body.is_empty() {
+                return Err(log.err("Got empty cert body from server"));
+            }
+            if *body.last().unwrap() != '\n' as u8 {
+                body.push('\n' as u8);
+            }
+            certs.extend(body);
         }
+        let artifact_path = "spaghettinuum_s.crt";
+        write(artifact_path, certs)
+            .await
+            .stack_context_with(log, "Error witing artifact PEM (as .crt)", ea!(path = artifact_path))?;
         return Ok(());
     }
 

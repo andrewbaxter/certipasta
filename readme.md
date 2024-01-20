@@ -1,8 +1,6 @@
 # Certipasta
 
-In a world ruled by [not evil corporations](https://bugs.chromium.org/p/chromium/issues/detail?id=914519), with [their puppet organizations](https://bugzilla.mozilla.org/show_bug.cgi?id=1450674) opposing decentralization at every corner, how is a pitiable surf to seek enfranchisement?
-
-That's right, with an alternate TLS root that supports [the Spaghettinuum](https://github.com/andrewbaxter/spaghettinuum)!
+There's no decentralized way to distribute TLS certs right now. This is a stop-gap until browsers support certs via Spaghettinuum natively, via plugins, or provide some other mechanism for non-centralized certificate distribution.
 
 Certipasta is like Let's Encrypt but for Spaghettinuum `.s` domains.
 

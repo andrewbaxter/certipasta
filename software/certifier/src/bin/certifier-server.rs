@@ -27,6 +27,8 @@ use certifier::{
     ServerConfig,
     VERSION_STATE_ENABLED,
     decide_sig,
+    WARN,
+    INFO,
 };
 use chrono::{
     Utc,
@@ -102,9 +104,9 @@ async fn generate_cert(
     kms_key_gcpid: &str,
     kms_client: &CloudKMS<HttpsConnector<HttpConnector>>,
 ) -> Result<CertResponse, loga::Error> {
-    let log = &loga::new(loga::Level::Info).fork(ea!(id = identity.to_string()));
+    let log = &loga::StandardLog::new().with_flags(WARN | INFO).fork(ea!(id = identity.to_string()));
     let requester_keyinfo =
-        SubjectPublicKeyInfoOwned::from_der(spki_der).log_context(log, "Unable to parse SPKI DER")?;
+        SubjectPublicKeyInfoOwned::from_der(spki_der).stack_context(log, "Unable to parse SPKI DER")?;
     let (_, ca_keylist) =
         kms_client
             .projects()
@@ -113,11 +115,11 @@ async fn generate_cert(
             .page_size(2)
             .doit()
             .await
-            .log_context(log, "Failed to get keys info")?;
+            .stack_context(log, "Failed to get keys info")?;
     let mut ca_keylist =
         ca_keylist
             .crypto_key_versions
-            .log_context(log, "Missing items in crypto key version list response")?
+            .stack_context(log, "Missing items in crypto key version list response")?
             .into_iter()
             .filter_map(|k| match (k.create_time, k.name) {
                 (Some(t), Some(n)) => Some((t, n)),
@@ -128,7 +130,7 @@ async fn generate_cert(
     let ca_current_privkey_full_id =
         ca_keylist
             .pop()
-            .log_context(
+            .stack_context(
                 log,
                 "No primary key set in keys, can't sign (keys missing critical fields in response may have been filtered)",
             )?
@@ -139,7 +141,7 @@ async fn generate_cert(
             .locations_key_rings_crypto_keys_crypto_key_versions_get_public_key(&ca_current_privkey_full_id)
             .doit()
             .await
-            .log_context(log, "Failed to get public key")?;
+            .stack_context(log, "Failed to get public key")?;
     let ca_keyinfo = SubjectPublicKeyInfoOwned::from_pem(&ca_pubkey.pem.unwrap()).unwrap();
     let (sig_digest_fn, sig_algorithm) = decide_sig(&ca_keyinfo)?;
     let ca_signer = BuilderSigner {
@@ -173,16 +175,16 @@ async fn generate_cert(
             }, &ca_current_privkey_full_id)
             .doit()
             .await
-            .log_context(log, "Error signing new CA cert CSR")?
+            .stack_context(log, "Error signing new CA cert CSR")?
             .1
             .signature
-            .log_context(log, "Signing request response missing signature data")?;
+            .stack_context(log, "Signing request response missing signature data")?;
     let pem =
         cert_builder
-            .assemble(BitString::from_bytes(&signature).log_context(log, "Error building signature bitstring")?)
-            .log_context(log, "Error assembling cert")?
+            .assemble(BitString::from_bytes(&signature).stack_context(log, "Error building signature bitstring")?)
+            .stack_context(log, "Error assembling cert")?
             .to_pem(der::pem::LineEnding::LF)
-            .log_context(log, "Error building PEM for cert")?;
+            .stack_context(log, "Error building PEM for cert")?;
     return Ok(CertResponse { pub_pem: pem });
 }
 
@@ -195,7 +197,7 @@ struct Args {
 async fn main() {
     async fn inner() -> Result<(), loga::Error> {
         let args = aargvark::vark::<Args>();
-        let log = &loga::new(loga::Level::Info);
+        let log = &loga::StandardLog::new().with_flags(WARN | INFO);
         let config = if let Some(p) = args.config {
             p.value
         } else if let Some(c) = match std::env::var(ENV_SERVER_CONFIG) {
@@ -208,10 +210,10 @@ async fn main() {
             },
         } {
             let log = log.fork(ea!(source = "env"));
-            serde_json::from_str::<ServerConfig>(&c).log_context(&log, "Parsing config")?
+            serde_json::from_str::<ServerConfig>(&c).stack_context(&log, "Parsing config")?
         } else {
             return Err(
-                log.new_err_with(
+                log.err_with(
                     "No config passed on command line, and no config set in env var",
                     ea!(env = ENV_SERVER_CONFIG),
                 ),
@@ -255,7 +257,7 @@ async fn main() {
                 );
 
             struct State_ {
-                log: loga::Log,
+                log: loga::StandardLog,
                 kms_key_gcpid: String,
                 kms_client: CloudKMS<HttpsConnector<HttpConnector>>,
                 ip_limit: RateLimiter<
@@ -295,7 +297,8 @@ async fn main() {
                             match body {
                                 CertRequest::V1(req) => {
                                     let Ok(req_params) = req.params.verify(&req.identity) else {
-                                        return Ok(StatusCode::BAD_REQUEST.into_response());
+                                        return Ok(StatusCode::BAD_REQUEST.into_response()) as
+                                            Result<_, loga::Error>;
                                     };
                                     if now.signed_duration_since(req_params.stamp) > Duration::seconds(60) {
                                         return Ok(StatusCode::BAD_REQUEST.into_response());
@@ -322,7 +325,7 @@ async fn main() {
                         match inner.await {
                             Ok(r) => return r,
                             Err(e) => {
-                                state.log.warn_e(e, "Error processing cert request", ea!());
+                                state.log.log_err(WARN, e.context("Error processing cert request"));
                                 return StatusCode::INTERNAL_SERVER_ERROR.into_response();
                             },
                         }
@@ -345,7 +348,7 @@ async fn main() {
                     ),
                 })))))).await {
                     Some(r) => {
-                        return r.log_context(&log, "Exited with error");
+                        return r.stack_context(&log, "Exited with error");
                     },
                     None => {
                         return Ok(());

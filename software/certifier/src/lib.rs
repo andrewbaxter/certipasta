@@ -20,6 +20,7 @@ use der::{
 use loga::{
     ea,
     ResultContext,
+    StandardFlags,
 };
 use rand::RngCore;
 use sec1::EcParameters;
@@ -49,6 +50,8 @@ pub const VERSION_STATE_ENABLED: &'static str = "ENABLED";
 pub const VERSION_STATE_DISABLED: &'static str = "DISABLED";
 pub const VERSION_STATE_DESTROY_SCHEDULED: &'static str = "DESTROY_SCHEDULED";
 pub const VERSION_STATE_DESTROYED: &'static str = "DESTROYED";
+pub const INFO: StandardFlags = StandardFlags::INFO;
+pub const WARN: StandardFlags = StandardFlags::WARN;
 
 #[derive(Serialize, Deserialize)]
 pub struct RotateConfig {

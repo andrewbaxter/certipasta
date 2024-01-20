@@ -84,7 +84,7 @@ fn main() {
 
     // Bootstrap/seed host
     {
-        let deploy_root = root.join("deploy");
+        let deploy_root = root.join("stage");
         let tf_root = deploy_root.join("tf");
         fs::create_dir_all(&tf_root).unwrap();
         let stack = &mut BuildStack {}.build();

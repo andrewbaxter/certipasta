@@ -1,9 +1,9 @@
 #!/usr/bin/bash -xeu
 (
-	cd rust/infra
+	cd infra
 	cargo run
 )
 (
-	cd deploy/tf
+	cd stage/tf
 	terraform apply --var-file input.json
 )
