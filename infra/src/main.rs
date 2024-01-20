@@ -77,8 +77,6 @@ fn main() {
             .unwrap()
             .parent()
             .unwrap()
-            .parent()
-            .unwrap()
             .to_path_buf();
     let target_root = PathBuf::from(&env::var("CARGO_TARGET_DIR").unwrap());
 
@@ -215,7 +213,7 @@ fn main() {
             tf_id: "zEQ49BS1H".into(),
             service_account_id: gcr_deploy_service_account.id().into(),
         }.build(stack);
-        let rust_dir = root.join("rust/certifier");
+        let rust_dir = root.join("software/certifier");
         let rust =
             BuildDataRun {
                 tf_id: "z22WPM6IT".into(),

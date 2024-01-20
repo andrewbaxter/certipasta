@@ -219,7 +219,7 @@ async fn generate_version(
         .upload_resumable(Cursor::new(cert_pem.as_bytes()), Mime::from_str("application/x-pem-file").unwrap())
         .await
         .stack_context_with(log, "Error uploading new cert", ea!(bucket = bucket_gcpid))?;
-    eprintln!("\nNew root cert:\n{}", cert_pem);
+    eprintln!("\nNew root cert is:\n{}", cert_pem);
 
     // Update view + return
     let version = ViewVersion(Rc::new(RefCell::new(ViewVersion_ {
@@ -598,17 +598,22 @@ async fn main() {
                 return Err(log.err("Received error response to request for cert"))
             }
             let mut body =
-                hyper::body::to_bytes(resp.into_body())
-                    .await
-                    .stack_context(log, "Error downloading cert body")?
-                    .to_vec();
+                String::from_utf8(
+                    hyper::body::to_bytes(resp.into_body())
+                        .await
+                        .stack_context(log, "Error downloading cert body")?
+                        .to_vec(),
+                ).stack_context(log, "Downloade cert PEM is invalid utf-8")?;
             if body.is_empty() {
                 return Err(log.err("Got empty cert body from server"));
             }
-            if *body.last().unwrap() != '\n' as u8 {
-                body.push('\n' as u8);
+            if *body.as_bytes().last().unwrap() != '\n' as u8 {
+                body.push('\n');
             }
-            certs.extend(body);
+            if o.0.as_ptr() == current.0.as_ptr() {
+                eprintln!("\nActive signing cert is:\n{}", body);
+            }
+            certs.extend(body.as_bytes());
         }
         let artifact_path = "spaghettinuum_s.crt";
         write(artifact_path, certs)

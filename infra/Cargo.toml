@@ -7,17 +7,17 @@ edition = "2021"
 
 [dependencies]
 enum-as-inner = "=0.5.1"
-terrars = "0.1.12"
-terrars-andrewbaxter-dinker = { version = "0.1.19", features = ["image"] }
-terrars-andrewbaxter-localrun = { version = "0.1.13", features = ["data_run"] }
-serde_json = "1.0.96"
-certifier = { path = "../certifier" }
-terrars-dnsimple-dnsimple = { version = "0.1.0", features = ["zone_record"] }
-terrars-hectorj-googlesiteverification = { version = "0.1.0", features = [
+terrars = "0.1"
+terrars-andrewbaxter-dinker = { version = "0.1", features = ["image"] }
+terrars-andrewbaxter-localrun = { version = "0.1", features = ["data_run"] }
+serde_json = "1"
+certifier = { path = "../software/certifier" }
+terrars-dnsimple-dnsimple = { version = "0.1", features = ["zone_record"] }
+terrars-hectorj-googlesiteverification = { version = "0.1", features = [
     "dns",
     "data_dns_token",
 ] }
-terrars-hashicorp-google = { version = "0.1.0", features = [
+terrars-hashicorp-google = { version = "0.1", features = [
     "project_service",
     "cloud_run_service",
     "cloud_run_domain_mapping",
@@ -33,7 +33,7 @@ terrars-hashicorp-google = { version = "0.1.0", features = [
     "storage_bucket",
     "storage_bucket_iam_binding",
 ] }
-terrars-integrations-github = { version = "0.1.0", features = [
+terrars-integrations-github = { version = "0.1", features = [
     "actions_variable",
     "data_actions_public_key",
     "actions_secret",

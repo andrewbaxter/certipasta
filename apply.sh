@@ -1,9 +1,9 @@
 #!/usr/bin/bash -xeu
 (
 	cd infra
-	cargo run
+	RUST_BACKTRACE=1 cargo run
 )
 (
 	cd stage/tf
-	terraform apply --var-file input.json
+	TF_LOG=info terraform apply --var-file input.json
 )
