@@ -17,7 +17,6 @@ use aargvark::{
 };
 use certifier::{
     sign_duration,
-    spki_compute_digest,
     to_x509_time,
     ca_rdn,
     rand_serial,
@@ -27,6 +26,7 @@ use certifier::{
     ENV_SERVER_CONFIG,
     ServerConfig,
     VERSION_STATE_ENABLED,
+    decide_sig,
 };
 use chrono::{
     Utc,
@@ -103,8 +103,9 @@ async fn generate_cert(
     kms_client: &CloudKMS<HttpsConnector<HttpConnector>>,
 ) -> Result<CertResponse, loga::Error> {
     let log = &loga::new(loga::Level::Info).fork(ea!(id = identity.to_string()));
-    let spki = SubjectPublicKeyInfoOwned::from_der(spki_der).log_context(log, "Unable to parse SPKI DER")?;
-    let (_, keys_info) =
+    let requester_keyinfo =
+        SubjectPublicKeyInfoOwned::from_der(spki_der).log_context(log, "Unable to parse SPKI DER")?;
+    let (_, ca_keylist) =
         kms_client
             .projects()
             .locations_key_rings_crypto_keys_crypto_key_versions_list(kms_key_gcpid)
@@ -113,8 +114,8 @@ async fn generate_cert(
             .doit()
             .await
             .log_context(log, "Failed to get keys info")?;
-    let mut keys_info =
-        keys_info
+    let mut ca_keylist =
+        ca_keylist
             .crypto_key_versions
             .log_context(log, "Missing items in crypto key version list response")?
             .into_iter()
@@ -123,25 +124,29 @@ async fn generate_cert(
                 _ => None,
             })
             .collect::<Vec<_>>();
-    keys_info.sort_by_cached_key(|k| k.0);
-    let current_full_id =
-        keys_info
+    ca_keylist.sort_by_cached_key(|k| k.0);
+    let ca_current_privkey_full_id =
+        ca_keylist
             .pop()
             .log_context(
                 log,
                 "No primary key set in keys, can't sign (keys missing critical fields in response may have been filtered)",
             )?
             .1;
-    let (_, pubkey) =
+    let (_, ca_pubkey) =
         kms_client
             .projects()
-            .locations_key_rings_crypto_keys_crypto_key_versions_get_public_key(&current_full_id)
+            .locations_key_rings_crypto_keys_crypto_key_versions_get_public_key(&ca_current_privkey_full_id)
             .doit()
             .await
             .log_context(log, "Failed to get public key")?;
-    let ca_spki = SubjectPublicKeyInfoOwned::from_pem(&pubkey.pem.unwrap()).unwrap();
-    let ca_signer = BuilderSigner(BuilderPubKey(ca_spki.clone()));
-    let mut builder = CertificateBuilder::new(
+    let ca_keyinfo = SubjectPublicKeyInfoOwned::from_pem(&ca_pubkey.pem.unwrap()).unwrap();
+    let (sig_digest_fn, sig_algorithm) = decide_sig(&ca_keyinfo)?;
+    let ca_signer = BuilderSigner {
+        key: BuilderPubKey(ca_keyinfo.clone()),
+        alg: sig_algorithm,
+    };
+    let mut cert_builder = CertificateBuilder::new(
         Profile::Leaf {
             issuer: ca_rdn(),
             enable_key_agreement: true,
@@ -155,19 +160,17 @@ async fn generate_cert(
             not_after: to_x509_time(now + sign_duration()),
         },
         RdnSequence::from_str(&format!("CN={}.s", identity.to_string())).unwrap(),
-        spki,
+        requester_keyinfo,
         &ca_signer,
     ).unwrap();
-    let csr_der = builder.finalize().unwrap();
+    let csr_der = cert_builder.finalize().unwrap();
     let signature =
         kms_client
             .projects()
             .locations_key_rings_crypto_keys_crypto_key_versions_asymmetric_sign(AsymmetricSignRequest {
-                digest: Some(
-                    spki_compute_digest(&ca_spki, &csr_der).log_context(log, "Error generating digest to sign CSR")?,
-                ),
+                digest: Some(sig_digest_fn(&csr_der)),
                 ..Default::default()
-            }, &current_full_id)
+            }, &ca_current_privkey_full_id)
             .doit()
             .await
             .log_context(log, "Error signing new CA cert CSR")?
@@ -175,7 +178,7 @@ async fn generate_cert(
             .signature
             .log_context(log, "Signing request response missing signature data")?;
     let pem =
-        builder
+        cert_builder
             .assemble(BitString::from_bytes(&signature).log_context(log, "Error building signature bitstring")?)
             .log_context(log, "Error assembling cert")?
             .to_pem(der::pem::LineEnding::LF)

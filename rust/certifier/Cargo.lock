@@ -383,6 +383,7 @@ version = "0.1.0"
 dependencies = [
  "aargvark",
  "chrono",
+ "const-oid",
  "der",
  "google-cloudkms1",
  "google-storage1",

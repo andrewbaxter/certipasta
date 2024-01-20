@@ -32,6 +32,7 @@ aargvark = { version = "0.0.7" }
 governor = "0.6.0"
 rand = "0.8.5"
 sec1 = "0.7.3"
+const-oid = "0.9.6"
 
 [patch.crates-io]
 google-apis-common = { git = "https://github.com/andrewbaxter/fork-google-apis-rs", rev = "c15eaa01b3c337f69803b4f53cbf938168035a21" }

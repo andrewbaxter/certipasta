@@ -19,7 +19,6 @@ use certifier::{
     sign_duration,
     rotation_period,
     rotation_buffer,
-    spki_compute_digest,
     to_x509_time,
     ca_rdn,
     rand_serial,
@@ -31,6 +30,7 @@ use certifier::{
     VERSION_STATE_DESTROY_SCHEDULED,
     VERSION_STATE_DESTROYED,
     VERSION_STATE_ENABLED,
+    decide_sig,
 };
 use chrono::{
     DateTime,
@@ -150,7 +150,7 @@ async fn generate_version(
     }, key_gcpid).doit().await.log_context(log, "Error rotating key")?;
     let ver_full_id = version.name.unwrap();
     let ver_short_id = get_ver_short_id(&ver_full_id)?;
-    let (_, pubkey) =
+    let (_, ca_pubkey) =
         kms_client
             .projects()
             .locations_key_rings_crypto_keys_crypto_key_versions_get_public_key(&ver_full_id)
@@ -159,9 +159,13 @@ async fn generate_version(
             .log_context(log, "Failed to get new public key")?;
 
     // Build CA cert
-    let signer_spki = SubjectPublicKeyInfoOwned::from_pem(&pubkey.pem.unwrap()).unwrap();
-    let builder_signer = BuilderSigner(BuilderPubKey(signer_spki.clone()));
-    let mut ca_builder = CertificateBuilder::new(
+    let ca_keyinfo = SubjectPublicKeyInfoOwned::from_pem(&ca_pubkey.pem.unwrap()).unwrap();
+    let (sig_digest_fn, sig_algorithm) = decide_sig(&ca_keyinfo)?;
+    let ca_signer = BuilderSigner {
+        key: BuilderPubKey(ca_keyinfo.clone()),
+        alg: sig_algorithm,
+    };
+    let mut cert_builder = CertificateBuilder::new(
         Profile::Root,
         // Timestamp, 1h granularity (don't publish two issued within an hour/don't issue
         // two within an hour)
@@ -171,10 +175,10 @@ async fn generate_version(
             not_after: to_x509_time(now + rotation_period() * 2 + rotation_buffer() + sign_duration()),
         },
         ca_rdn(),
-        signer_spki.clone(),
-        &builder_signer,
+        ca_keyinfo.clone(),
+        &ca_signer,
     ).unwrap();
-    ca_builder.add_extension(&NameConstraints {
+    cert_builder.add_extension(&NameConstraints {
         permitted_subtrees: Some(vec![GeneralSubtree {
             base: GeneralName::DnsName(Ia5String::new(".s").unwrap()),
             minimum: 0,
@@ -182,17 +186,12 @@ async fn generate_version(
         }]),
         excluded_subtrees: None,
     }).unwrap();
-    let ca_csr_der = ca_builder.finalize().unwrap();
+    let cert_csr_der = cert_builder.finalize().unwrap();
     let signature =
         kms_client
             .projects()
             .locations_key_rings_crypto_keys_crypto_key_versions_asymmetric_sign(AsymmetricSignRequest {
-                digest: Some(
-                    spki_compute_digest(
-                        &signer_spki,
-                        &ca_csr_der,
-                    ).log_context(log, "Error generating digest to sign CSR")?,
-                ),
+                digest: Some(sig_digest_fn(&cert_csr_der)),
                 ..Default::default()
             }, &ver_full_id)
             .doit()
@@ -201,8 +200,8 @@ async fn generate_version(
             .1
             .signature
             .log_context(log, "Signing request response missing signature data")?;
-    let ca_pem =
-        ca_builder
+    let cert_pem =
+        cert_builder
             .assemble(BitString::from_bytes(&signature).log_context(log, "Error building signature bitstring")?)
             .log_context(log, "Error assembling cert")?
             .to_pem(der::pem::LineEnding::LF)
@@ -215,10 +214,10 @@ async fn generate_version(
             name: Some(ver_short_id.clone()),
             ..Default::default()
         }, &bucket_gcpid)
-        .upload_resumable(Cursor::new(ca_pem.as_bytes()), Mime::from_str("application/x-pem-file").unwrap())
+        .upload_resumable(Cursor::new(cert_pem.as_bytes()), Mime::from_str("application/x-pem-file").unwrap())
         .await
         .log_context_with(log, "Error uploading new cert", ea!(bucket = bucket_gcpid))?;
-    eprintln!("\nNew root cert:\n{}", ca_pem);
+    eprintln!("\nNew root cert:\n{}", cert_pem);
 
     // Update view + return
     let version = ViewVersion(Rc::new(RefCell::new(ViewVersion_ {

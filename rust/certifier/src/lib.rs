@@ -5,6 +5,13 @@ use chrono::{
     DateTime,
     Datelike,
 };
+use const_oid::db::rfc5912::{
+    ID_EC_PUBLIC_KEY,
+    SECP_256_R_1,
+    SECP_384_R_1,
+    ECDSA_WITH_SHA_256,
+    ECDSA_WITH_SHA_384,
+};
 use der::{
     Decode,
     Encode,
@@ -23,7 +30,6 @@ use serde::{
 use sha2::{
     Digest,
     Sha256,
-    Sha512,
     Sha384,
 };
 use signature::Keypair;
@@ -107,59 +113,74 @@ impl EncodePublicKey for BuilderPubKey {
     }
 }
 
-pub struct BuilderSigner(pub BuilderPubKey);
+pub struct BuilderSigner {
+    pub key: BuilderPubKey,
+    pub alg: x509_cert::spki::AlgorithmIdentifierOwned,
+}
 
 impl Keypair for BuilderSigner {
     type VerifyingKey = BuilderPubKey;
 
     fn verifying_key(&self) -> Self::VerifyingKey {
-        return self.0.clone();
+        return self.key.clone();
     }
 }
 
 impl DynSignatureAlgorithmIdentifier for BuilderSigner {
     fn signature_algorithm_identifier(&self) -> x509_cert::spki::Result<x509_cert::spki::AlgorithmIdentifierOwned> {
-        return Ok(self.0.0.algorithm.clone());
+        return Ok(self.alg.clone());
     }
 }
 
-pub fn spki_compute_digest(
-    spki: &SubjectPublicKeyInfoOwned,
-    der: &[u8],
-) -> Result<google_cloudkms1::api::Digest, loga::Error> {
-    let oid = spki.algorithm.oid.to_string();
-    match oid.as_str() {
+pub fn decide_sig(
+    signer_keyinfo: &SubjectPublicKeyInfoOwned,
+) -> Result<(fn(&[u8]) -> google_cloudkms1::api::Digest, x509_cert::spki::AlgorithmIdentifierOwned), loga::Error> {
+    let digest_fn: fn(&[u8]) -> google_cloudkms1::api::Digest;
+    let signature_algorithm;
+    match signer_keyinfo.algorithm.oid {
         // ecPublicKey
-        "1.2.840.10045.2.1" => {
+        ID_EC_PUBLIC_KEY => {
             let curve =
                 EcParameters::from_der(
-                    &spki.algorithm.parameters.as_ref().context("Missing ecPublicKey parameters")?.to_der().unwrap(),
+                    &signer_keyinfo
+                        .algorithm
+                        .parameters
+                        .as_ref()
+                        .context("Missing ecPublicKey parameters")?
+                        .to_der()
+                        .unwrap(),
                 )
                     .context("Error parsing ecPublicKey params")?
                     .named_curve()
-                    .context("ecPublicKey params missing curve name")?
-                    .to_string();
-            match curve.as_str() {
-                // ECDSA_P256
-                "1.2.840.10045.3.1.7" => {
-                    return Ok(google_cloudkms1::api::Digest {
-                        sha256: Some(<Sha256 as Digest>::digest(der).to_vec()),
-                        ..Default::default()
-                    });
+                    .context("ecPublicKey params missing curve name")?;
+            match curve {
+                SECP_256_R_1 => {
+                    fn f(csr_der: &[u8]) -> google_cloudkms1::api::Digest {
+                        return google_cloudkms1::api::Digest {
+                            sha256: Some(<Sha256 as Digest>::digest(csr_der).to_vec()),
+                            ..Default::default()
+                        };
+                    }
+
+                    digest_fn = f;
+                    signature_algorithm = x509_cert::spki::AlgorithmIdentifierOwned {
+                        oid: ECDSA_WITH_SHA_256,
+                        parameters: None,
+                    };
                 },
-                // ECDSA_P384
-                "1.3.132.0.34" => {
-                    return Ok(google_cloudkms1::api::Digest {
-                        sha384: Some(<Sha384 as Digest>::digest(der).to_vec()),
-                        ..Default::default()
-                    });
-                },
-                // ECDSA_P521
-                "1.3.132.0.35" => {
-                    return Ok(google_cloudkms1::api::Digest {
-                        sha512: Some(<Sha512 as Digest>::digest(der).to_vec()),
-                        ..Default::default()
-                    });
+                SECP_384_R_1 => {
+                    fn f(csr_der: &[u8]) -> google_cloudkms1::api::Digest {
+                        return google_cloudkms1::api::Digest {
+                            sha384: Some(<Sha384 as Digest>::digest(csr_der).to_vec()),
+                            ..Default::default()
+                        };
+                    }
+
+                    digest_fn = f;
+                    signature_algorithm = x509_cert::spki::AlgorithmIdentifierOwned {
+                        oid: ECDSA_WITH_SHA_384,
+                        parameters: None,
+                    };
                 },
                 _ => {
                     return Err(loga::err_with("ecPublicKey has unsupported curve", ea!(curve = curve)));
@@ -167,7 +188,10 @@ pub fn spki_compute_digest(
             }
         },
         _ => {
-            return Err(loga::err_with("Configured key has unsupported algorithm", ea!(oid = oid)));
+            return Err(
+                loga::err_with("Configured key has unsupported algorithm", ea!(oid = signer_keyinfo.algorithm.oid)),
+            );
         },
     }
+    return Ok((digest_fn, signature_algorithm));
 }
