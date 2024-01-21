@@ -225,7 +225,7 @@ async fn generate_version(
         short_id: ver_short_id.clone(),
     })));
     let object = ViewObject(Rc::new(RefCell::new(ViewObject_ {
-        object_key: ver_short_id.clone(),
+        object_key: format!("{}/{}", BUCKET_PREFIX_VERSION, ver_short_id),
         version_short_id: ver_short_id.clone(),
         create_time: now,
         issue_start: None,
@@ -306,7 +306,11 @@ async fn main() {
                         log.log(WARN, "Received obj missing name/id! Skipping...");
                         continue;
                     };
-                    let Some(version_short_id) = object_key.strip_prefix(&format!("{}/", BUCKET_PREFIX_VERSION)) else {
+                    let Some(
+                        version_short_id
+                    ) = object_key.strip_suffix(
+                        "/"
+                    ).unwrap_or(&object_key).strip_prefix(&format!("{}/", BUCKET_PREFIX_VERSION)) else {
                         continue;
                     };
                     let metadata = v.metadata.unwrap_or_default();
