@@ -66,9 +66,6 @@ use loga::{
 };
 use mime::Mime;
 use tokio::{
-    fs::{
-        write,
-    },
     time::sleep,
 };
 use x509_cert::{
@@ -101,6 +98,7 @@ struct Args {
 
 const TAG_ISSUE_START: &'static str = "start";
 const TAG_ISSUE_END: &'static str = "end";
+const BUCKET_PREFIX_VERSION: &'static str = "generations";
 
 fn get_ver_short_id(full_id: &str) -> Result<String, loga::Error> {
     return Ok(
@@ -213,7 +211,7 @@ async fn generate_version(
     storage_client
         .objects()
         .insert(Object {
-            name: Some(ver_short_id.clone()),
+            name: Some(format!("{}/{}", BUCKET_PREFIX_VERSION, ver_short_id)),
             ..Default::default()
         }, &bucket_gcpid)
         .upload_resumable(Cursor::new(cert_pem.as_bytes()), Mime::from_str("application/x-pem-file").unwrap())
@@ -304,8 +302,11 @@ async fn main() {
                     break;
                 };
                 for v in new_objects {
-                    let Some(id) = v.name else {
+                    let Some(object_key) = v.name else {
                         log.log(WARN, "Received obj missing name/id! Skipping...");
+                        continue;
+                    };
+                    let Some(version_short_id) = object_key.strip_prefix(&format!("{}/", BUCKET_PREFIX_VERSION)) else {
                         continue;
                     };
                     let metadata = v.metadata.unwrap_or_default();
@@ -348,11 +349,11 @@ async fn main() {
                     log.log_with(
                         INFO,
                         "Surveying, found cert",
-                        ea!(id = id, issue_start = issue_start.dbg_str(), issue_end = issue_end.dbg_str()),
+                        ea!(id = object_key, issue_start = issue_start.dbg_str(), issue_end = issue_end.dbg_str()),
                     );
                     view.objects.push(ViewObject(Rc::new(RefCell::new(ViewObject_ {
-                        object_key: id.clone(),
-                        version_short_id: id,
+                        object_key: object_key.clone(),
+                        version_short_id: version_short_id.to_string(),
                         create_time: create_time,
                         issue_start: issue_start,
                         issue_end: issue_end,
@@ -615,10 +616,18 @@ async fn main() {
             }
             certs.extend(body.as_bytes());
         }
-        let artifact_path = "spaghettinuum_s.crt";
-        write(artifact_path, certs)
+        let artifact_name = "spaghettinuum_s.crt";
+        let url = format!("https://storage.googleapis.com/{}/{}", config.bucket, artifact_name);
+        storage_client
+            .objects()
+            .insert(Object {
+                name: Some(artifact_name.to_string()),
+                ..Default::default()
+            }, &config.bucket)
+            .upload_resumable(Cursor::new(&certs), Mime::from_str("application/pem-certificate-chain").unwrap())
             .await
-            .stack_context_with(log, "Error witing artifact PEM (as .crt)", ea!(path = artifact_path))?;
+            .stack_context_with(log, "Error uploading bundle", ea!(object = url))?;
+        eprintln!("Bundle was uploaded to {}", url);
         return Ok(());
     }
 

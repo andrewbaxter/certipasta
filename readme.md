@@ -10,9 +10,7 @@ In order to view websites certified by certipasta you'll need to install the roo
 
 The certificates are restricted to the `.s` top level domain.
 
-You can find the latest set of certificates in the build artifacts. The certs last for roughly two years, and are rotated once a year by the repository pipeline.
-
-In most browsers if you download the certificate you'll be prompted to install it, although if package managers package such that it gets installed using normal procedures updated along with operating system updates that would be ideal.
+You can find the latest active cert bundle at <https://storage.googleapis.com/zlr7wmbe6/spaghettinuum_s.crt>. The certificates last for roughly two years, and are rotated once a year by the repository pipeline - there's one year before the new certificate becomes active and the previous is no longer used to issue certificates.
 
 # Issuing leaf certificates for your site
 
@@ -52,4 +50,4 @@ There are two ways to intercept traffic:
 
 All Spaghettinuum DNS lookups are signed by the identity, so there's no way to forge a record without compromising the identity itself. An attacker could repeat a previously published record with an address the owner no longer controls, but as long as a newer record exists the network should reject this.
 
-Intercepting IP traffic is not specific to this usage and out of scope.
+Methods for intercepting IP traffic is not specific to this service.

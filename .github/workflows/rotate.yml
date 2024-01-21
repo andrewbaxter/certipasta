@@ -29,8 +29,3 @@ jobs:
           cargo run --manifest-path software/certifier/Cargo.toml --bin certifier-rotate
         env:
           CERTIPASTA_ROTATE_CONFIG: ${{ vars.CERTIPASTA_ROTATE_CONFIG }}
-      - uses: actions/upload-artifact@v4
-        with:
-          name: certipasta-root-certs
-          path: spaghettinuum_s.crt
-          if-no-files-found: error

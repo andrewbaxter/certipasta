@@ -149,6 +149,12 @@ fn main() {
             members: vec![format!("serviceAccount:{}", pipeline_service_account.email()).into()].into(),
             role: "roles/storage.objectUser".into(),
         }.build(stack);
+        BuildStorageBucketIamBinding {
+            tf_id: "zNAAQLQ2V".into(),
+            bucket: certs_bucket.name().into(),
+            members: vec!["allUsers".into()].into(),
+            role: "roles/storage.objectViewer".into(),
+        }.build(stack);
         let enable_gcp_keys_api = BuildProjectService {
             tf_id: "zBXWMHWWS".into(),
             service: "cloudkms.googleapis.com".into(),
