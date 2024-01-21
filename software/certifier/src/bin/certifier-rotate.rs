@@ -539,10 +539,10 @@ async fn main() {
                 }, &config.bucket, &old_current.0.borrow().object_key)
                 .doit()
                 .await
-                .stack_context(
+                .stack_context_with(
                     log,
                     "Failed to set old current version issue end tag",
-                    ea!(object = current.0.borrow().object_key),
+                    ea!(object = old_current.0.borrow().object_key),
                 )?;
             old_current.0.borrow_mut().issue_end = Some(end_time);
         }
@@ -606,7 +606,7 @@ async fn main() {
                     .param("alt", "media")
                     .doit()
                     .await
-                    .stack_context_with(log, "Error requesting cert from bucket", ea!(object = o1.object_key))?
+                    .stack_context_with(log, "Error requesting cert from bucket", ea!(object = o0.object_key))?
                     .0;
             if !resp.status().is_success() {
                 return Err(log.err("Received error response to request for cert"))
