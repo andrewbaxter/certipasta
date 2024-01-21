@@ -497,7 +497,7 @@ async fn main() {
                     new_tags
                 }),
                 ..Default::default()
-            }, &config.bucket, &current.0.borrow().object_key)
+            }, &config.bucket, &urlencoding::encode(&current.0.borrow().object_key))
             .doit()
             .await
             .stack_context_with(
@@ -536,7 +536,7 @@ async fn main() {
                         new_tags
                     }),
                     ..Default::default()
-                }, &config.bucket, &old_current.0.borrow().object_key)
+                }, &config.bucket, &urlencoding::encode(&old_current.0.borrow().object_key))
                 .doit()
                 .await
                 .stack_context_with(
@@ -565,7 +565,7 @@ async fn main() {
             log.log_with(INFO, "Deleting obsolete cert", ea!(id = o.0.borrow().version_short_id));
             storage_client
                 .objects()
-                .delete(&config.bucket, &o1.object_key)
+                .delete(&config.bucket, &urlencoding::encode(&o1.object_key))
                 .doit()
                 .await
                 .stack_context_with(log, "Error deleting expired cert object", ea!(object = o1.object_key))?;
@@ -602,7 +602,7 @@ async fn main() {
             let resp =
                 storage_client
                     .objects()
-                    .get(&config.bucket, &o0.object_key)
+                    .get(&config.bucket, &urlencoding::encode(&o0.object_key))
                     .param("alt", "media")
                     .doit()
                     .await

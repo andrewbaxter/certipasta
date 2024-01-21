@@ -443,6 +443,7 @@ dependencies = [
  "spaghettinuum",
  "taskmanager",
  "tokio",
+ "urlencoding",
  "x509-cert",
  "yup-oauth2",
 ]
