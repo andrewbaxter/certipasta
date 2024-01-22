@@ -36,7 +36,10 @@ use chrono::{
     DateTime,
 };
 use der::{
-    asn1::BitString,
+    asn1::{
+        BitString,
+        Ia5String,
+    },
     EncodePem,
     DecodePem,
     Decode,
@@ -87,6 +90,12 @@ use x509_cert::{
         CertificateBuilder,
         Profile,
         Builder,
+    },
+    ext::pkix::{
+        name::{
+            GeneralName,
+        },
+        SubjectAltName,
     },
     name::RdnSequence,
     spki::SubjectPublicKeyInfoOwned,
@@ -148,6 +157,7 @@ async fn generate_cert(
         key: BuilderPubKey(ca_keyinfo.clone()),
         alg: sig_algorithm,
     };
+    let fqdn = format!("{}.s", identity.to_string());
     let mut cert_builder = CertificateBuilder::new(
         Profile::Leaf {
             issuer: ca_rdn(),
@@ -161,10 +171,13 @@ async fn generate_cert(
             not_before: to_x509_time(now),
             not_after: to_x509_time(now + sign_duration()),
         },
-        RdnSequence::from_str(&format!("CN={}.s", identity.to_string())).unwrap(),
+        RdnSequence::from_str(&format!("CN={}", fqdn)).unwrap(),
         requester_keyinfo,
         &ca_signer,
     ).unwrap();
+    cert_builder
+        .add_extension(&SubjectAltName(vec![GeneralName::DnsName(Ia5String::new(&fqdn).unwrap())]))
+        .unwrap();
     let csr_der = cert_builder.finalize().unwrap();
     let signature =
         kms_client
