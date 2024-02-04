@@ -17,7 +17,7 @@ You can find the latest active cert bundle at <https://storage.googleapis.com/zl
 1. Add the root cert to the p11-kit-managed store by running:
 
    ```
-   sudo trust anchor --store ~/downloads/spaghettinuum_s.crt
+   sudo trust anchor --store spaghettinuum_s.crt
    ```
 
    The file can be used to remove it again later, so you may want to keep it around (it would be nice if this were declarative).
@@ -27,6 +27,12 @@ You can find the latest active cert bundle at <https://storage.googleapis.com/zl
    ```
    sudo update-ca-trust
    ```
+
+3. Restart any programes (ex: Firefox, Chrome) that may be using TLS.
+
+### Updating the root certificates
+
+Do `sudo trust anchor --remove spaghettinuum_s.crt` to uninstall the old cert, then repeat the installation procedure.
 
 ## Installing root certificates on Windows
 
