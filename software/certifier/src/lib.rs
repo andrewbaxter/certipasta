@@ -1,47 +1,40 @@
-use std::str::FromStr;
-use chrono::{
-    Utc,
-    Duration,
-    DateTime,
-    Datelike,
-};
-use const_oid::db::rfc5912::{
-    ID_EC_PUBLIC_KEY,
-    SECP_256_R_1,
-    SECP_384_R_1,
-    ECDSA_WITH_SHA_256,
-    ECDSA_WITH_SHA_384,
-};
-use der::{
-    Decode,
-    Encode,
-    asn1::GeneralizedTime,
-};
-use loga::{
-    ea,
-    ResultContext,
-    StandardFlags,
-};
-use rand::RngCore;
-use sec1::EcParameters;
-use serde::{
-    Serialize,
-    Deserialize,
-};
-use sha2::{
-    Digest,
-    Sha256,
-    Sha384,
-};
-use signature::Keypair;
-use x509_cert::{
-    spki::{
-        SubjectPublicKeyInfoOwned,
-        EncodePublicKey,
-        DynSignatureAlgorithmIdentifier,
+use {
+    chrono::{
+        Duration,
     },
-    name::RdnSequence,
-    serial_number::SerialNumber,
+    const_oid::db::rfc5912::{
+        ID_EC_PUBLIC_KEY,
+        SECP_256_R_1,
+        SECP_384_R_1,
+        ECDSA_WITH_SHA_256,
+        ECDSA_WITH_SHA_384,
+    },
+    der::{
+        Decode,
+        Encode,
+    },
+    loga::{
+        ea,
+        ResultContext,
+    },
+    sec1::EcParameters,
+    serde::{
+        Serialize,
+        Deserialize,
+    },
+    sha2::{
+        Digest,
+        Sha256,
+        Sha384,
+    },
+    signature::Keypair,
+    x509_cert::{
+        spki::{
+            SubjectPublicKeyInfoOwned,
+            EncodePublicKey,
+            DynSignatureAlgorithmIdentifier,
+        },
+    },
 };
 
 pub const ENV_ROTATE_CONFIG: &'static str = "CERTIPASTA_ROTATE_CONFIG";
@@ -50,8 +43,6 @@ pub const VERSION_STATE_ENABLED: &'static str = "ENABLED";
 pub const VERSION_STATE_DISABLED: &'static str = "DISABLED";
 pub const VERSION_STATE_DESTROY_SCHEDULED: &'static str = "DESTROY_SCHEDULED";
 pub const VERSION_STATE_DESTROYED: &'static str = "DESTROYED";
-pub const INFO: StandardFlags = StandardFlags::INFO;
-pub const WARN: StandardFlags = StandardFlags::WARN;
 
 #[derive(Serialize, Deserialize)]
 pub struct RotateConfig {
@@ -76,36 +67,7 @@ pub fn rotation_buffer() -> Duration {
     return Duration::days(7);
 }
 
-pub fn ca_rdn() -> RdnSequence {
-    return RdnSequence::from_str("CN=certipasta,O=andrewbaxter").unwrap();
-}
-
-pub fn rand_serial() -> SerialNumber {
-    let mut data = [0u8; 20];
-    rand::thread_rng().fill_bytes(&mut data);
-
-    // Big-endian positive, for whatever meaning the spec has remaining
-    data[0] &= 0x7F;
-    return SerialNumber::new(&data).unwrap();
-}
-
-#[macro_export]
-macro_rules! enum_unwrap{
-    ($i: expr, $p: pat => $o: expr) => {
-        match $i {
-            $p => $o,
-            _ => panic !(""),
-        }
-    };
-}
-
-pub fn to_x509_time(t: DateTime<Utc>) -> x509_cert::time::Time {
-    return x509_cert::time::Time::GeneralTime(
-        GeneralizedTime::from_date_time(
-            der::DateTime::new(t.year() as u16, t.month() as u8, t.day() as u8, 0, 0, 0).unwrap(),
-        ),
-    );
-}
+pub const CA_FQDN: &'static str = "certipasta.isandrew.com";
 
 #[derive(Clone)]
 pub struct BuilderPubKey(pub SubjectPublicKeyInfoOwned);

@@ -1,94 +1,90 @@
-use std::{
-    io::{
-        Cursor,
+use {
+    aargvark::{
+        Aargvark,
+        AargvarkJson,
     },
-    str::FromStr,
-    collections::{
-        HashMap,
-        HashSet,
+    certifier::{
+        decide_sig,
+        rotation_buffer,
+        rotation_period,
+        sign_duration,
+        BuilderPubKey,
+        BuilderSigner,
+        RotateConfig,
+        CA_FQDN,
+        ENV_ROTATE_CONFIG,
+        VERSION_STATE_DESTROYED,
+        VERSION_STATE_DESTROY_SCHEDULED,
+        VERSION_STATE_DISABLED,
+        VERSION_STATE_ENABLED,
     },
-    rc::Rc,
-    cell::RefCell,
-};
-use aargvark::{
-    Aargvark,
-    AargvarkJson,
-};
-use certifier::{
-    sign_duration,
-    rotation_period,
-    rotation_buffer,
-    to_x509_time,
-    ca_rdn,
-    rand_serial,
-    BuilderSigner,
-    BuilderPubKey,
-    RotateConfig,
-    ENV_ROTATE_CONFIG,
-    VERSION_STATE_DISABLED,
-    VERSION_STATE_DESTROY_SCHEDULED,
-    VERSION_STATE_DESTROYED,
-    VERSION_STATE_ENABLED,
-    decide_sig,
-    INFO,
-    WARN,
-};
-use chrono::{
-    DateTime,
-    Utc,
-    Duration,
-};
-use der::{
-    DecodePem,
-    EncodePem,
-};
-use google_cloudkms1::{
-    CloudKMS,
-    api::{
-        CryptoKeyVersion,
-        DestroyCryptoKeyVersionRequest,
-        AsymmetricSignRequest,
+    chrono::{
+        DateTime,
+        Duration,
+        Utc,
     },
-    FieldMask,
-};
-use google_storage1::{
-    Storage,
-    api::Object,
-};
-use hyper::client::HttpConnector;
-use hyper_rustls::HttpsConnector;
-use loga::{
-    ResultContext,
-    ea,
-    DebugDisplay,
-    StandardLog,
-    ErrContext,
-};
-use mime::Mime;
-use tokio::{
-    time::sleep,
-};
-use x509_cert::{
-    ext::pkix::{
-        name::GeneralName,
-        NameConstraints,
-        constraints::name::GeneralSubtree,
+    der::{
+        DecodePem,
+        EncodePem,
     },
-    der::asn1::{
-        Ia5String,
-        BitString,
+    google_cloudkms1::{
+        api::{
+            AsymmetricSignRequest,
+            CryptoKeyVersion,
+            DestroyCryptoKeyVersionRequest,
+        },
+        CloudKMS,
+        FieldMask,
     },
-    builder::{
-        Builder,
-        CertificateBuilder,
-        Profile,
+    google_storage1::{
+        api::Object,
+        Storage,
     },
-    spki::SubjectPublicKeyInfoOwned,
-};
-use yup_oauth2::{
-    ApplicationDefaultCredentialsAuthenticator,
-    ApplicationDefaultCredentialsFlowOpts,
-    authenticator::ApplicationDefaultCredentialsTypes,
+    loga::{
+        ea,
+        DebugDisplay,
+        ErrContext,
+        Log,
+        ResultContext,
+    },
+    mime::Mime,
+    spaghettinuum::utils::tls_util::{
+        rand_serial,
+        to_x509_time,
+    },
+    std::{
+        cell::RefCell,
+        collections::{
+            HashMap,
+            HashSet,
+        },
+        io::Cursor,
+        rc::Rc,
+        str::FromStr,
+    },
+    tokio::time::sleep,
+    x509_cert::{
+        builder::{
+            Builder,
+            CertificateBuilder,
+            Profile,
+        },
+        der::asn1::{
+            BitString,
+            Ia5String,
+        },
+        ext::pkix::{
+            constraints::name::GeneralSubtree,
+            name::GeneralName,
+            NameConstraints,
+        },
+        spki::SubjectPublicKeyInfoOwned,
+    },
+    yup_oauth2::{
+        authenticator::ApplicationDefaultCredentialsTypes,
+        ApplicationDefaultCredentialsAuthenticator,
+        ApplicationDefaultCredentialsFlowOpts,
+    },
 };
 
 #[derive(Aargvark)]
@@ -134,9 +130,9 @@ struct View {
 }
 
 async fn generate_version(
-    log: &loga::StandardLog,
-    kms_client: &CloudKMS<HttpsConnector<HttpConnector>>,
-    storage_client: &Storage<HttpsConnector<HttpConnector>>,
+    log: &Log,
+    kms_client: &CloudKMS<yup_oauth2::hyper_rustls::HttpsConnector<yup_oauth2::hyper::client::HttpConnector>>,
+    storage_client: &Storage<yup_oauth2::hyper_rustls::HttpsConnector<yup_oauth2::hyper::client::HttpConnector>>,
     key_gcpid: &str,
     bucket_gcpid: &str,
     view: &mut View,
@@ -174,7 +170,7 @@ async fn generate_version(
             not_before: to_x509_time(now - Duration::hours(24)),
             not_after: to_x509_time(now + rotation_period() * 2 + rotation_buffer() + sign_duration()),
         },
-        ca_rdn(),
+        x509_cert::name::RdnSequence::from_str(&format!("CN={}", CA_FQDN)).unwrap(),
         ca_keyinfo.clone(),
         &ca_signer,
     ).unwrap();
@@ -241,7 +237,8 @@ async fn generate_version(
 async fn main() {
     async fn inner() -> Result<(), loga::Error> {
         let args = aargvark::vark::<Args>();
-        let log = &StandardLog::new().with_flags(WARN | INFO);
+        let log = Log::new_root(loga::INFO);
+        let log = &log;
         let config = if let Some(p) = args.config {
             p.value
         } else if let Some(c) = match std::env::var(ENV_ROTATE_CONFIG) {
@@ -264,10 +261,15 @@ async fn main() {
             );
         };
         let hc =
-            hyper
+            yup_oauth2
+            ::hyper
             ::Client
             ::builder().build(
-                hyper_rustls::HttpsConnectorBuilder::new().with_webpki_roots().https_or_http().enable_http1().build(),
+                yup_oauth2::hyper_rustls::HttpsConnectorBuilder::new()
+                    .with_webpki_roots()
+                    .https_or_http()
+                    .enable_http1()
+                    .build(),
             );
         let auth =
             match ApplicationDefaultCredentialsAuthenticator::with_client(
@@ -304,7 +306,7 @@ async fn main() {
                 };
                 for v in new_objects {
                     let Some(object_key) = v.name else {
-                        log.log(WARN, "Received obj missing name/id! Skipping...");
+                        log.log(loga::WARN, "Received obj missing name/id! Skipping...");
                         continue;
                     };
                     let Some(
@@ -323,7 +325,7 @@ async fn main() {
                                 Ok(stamp) => Some(<DateTime<Utc>>::from(stamp)),
                                 Err(e) => {
                                     log.log_err(
-                                        WARN,
+                                        loga::WARN,
                                         e.context_with("Error parsing tag", ea!(tag = TAG_ISSUE_START)),
                                     );
                                     continue;
@@ -340,7 +342,7 @@ async fn main() {
                                 Ok(stamp) => Some(<DateTime<Utc>>::from(stamp)),
                                 Err(e) => {
                                     log.log_err(
-                                        WARN,
+                                        loga::WARN,
                                         e.context_with("Error parsing tag", ea!(tag = TAG_ISSUE_END)),
                                     );
                                     continue;
@@ -352,7 +354,7 @@ async fn main() {
                         },
                     };
                     log.log_with(
-                        INFO,
+                        loga::INFO,
                         "Surveying, found cert",
                         ea!(id = object_key, issue_start = issue_start.dbg_str(), issue_end = issue_end.dbg_str()),
                     );
@@ -388,18 +390,18 @@ async fn main() {
                 };
                 for v in new_versions {
                     let Some(state) = v.state else {
-                        log.log(WARN, "Received version missing state! Skipping...");
+                        log.log(loga::WARN, "Received version missing state! Skipping...");
                         continue;
                     };
                     if state == VERSION_STATE_DESTROY_SCHEDULED || state == VERSION_STATE_DESTROYED {
                         continue;
                     }
                     let Some(full_id) = v.name else {
-                        log.log(WARN, "Received version missing name/id! Skipping...");
+                        log.log(loga::WARN, "Received version missing name/id! Skipping...");
                         continue;
                     };
                     let short_id = get_ver_short_id(&full_id)?;
-                    log.log_with(INFO, "Surveying, found key version", ea!(id = short_id, state = state));
+                    log.log_with(loga::INFO, "Surveying, found key version", ea!(id = short_id, state = state));
                     view.versions.insert(short_id.clone(), ViewVersion(Rc::new(RefCell::new(ViewVersion_ {
                         full_id: full_id,
                         short_id: short_id,
@@ -423,7 +425,7 @@ async fn main() {
                 if o1.issue_start.is_some() && o1.issue_end.is_none() &&
                     view.versions.contains_key(&o1.version_short_id) {
                     old_current = Some(o.clone());
-                    log.log_with(INFO, "Selected old current key version", ea!(id = o1.version_short_id));
+                    log.log_with(loga::INFO, "Selected old current key version", ea!(id = o1.version_short_id));
                     offset = i + 1;
                     break;
                 }
@@ -433,7 +435,7 @@ async fn main() {
                 let o1 = o.0.borrow();
                 if o1.issue_start.is_none() && o1.issue_end.is_none() &&
                     view.versions.contains_key(&o1.version_short_id) {
-                    log.log_with(INFO, "Selected current key version", ea!(id = o1.version_short_id));
+                    log.log_with(loga::INFO, "Selected current key version", ea!(id = o1.version_short_id));
                     current = Some(o.clone());
                     break;
                 }
@@ -442,7 +444,7 @@ async fn main() {
                 let o1 = o.0.borrow();
                 if !o1.issue_start.is_some() && !o1.issue_end.is_some() &&
                     view.versions.contains_key(&o1.version_short_id) {
-                    log.log_with(INFO, "Selected next key version", ea!(id = o1.version_short_id));
+                    log.log_with(loga::INFO, "Selected next key version", ea!(id = o1.version_short_id));
                     next = Some(o.clone());
                     break;
                 }
@@ -452,7 +454,7 @@ async fn main() {
         // # Ensure a current version, enable the key and mark it as having started use
         let current = match current {
             None => {
-                log.log(INFO, "No available current key version, creating");
+                log.log(loga::INFO, "No available current key version, creating");
                 generate_version(
                     log,
                     &kms_client,
@@ -464,7 +466,7 @@ async fn main() {
             },
             Some(current) => {
                 if next.is_none() {
-                    log.log(INFO, "No available next key version, creating");
+                    log.log(loga::INFO, "No available next key version, creating");
                     generate_version(
                         log,
                         &kms_client,
@@ -477,7 +479,11 @@ async fn main() {
                 current
             },
         };
-        log.log_with(INFO, "Activating selected current key version", ea!(id = current.0.borrow().version_short_id));
+        log.log_with(
+            loga::INFO,
+            "Activating selected current key version",
+            ea!(id = current.0.borrow().version_short_id),
+        );
         kms_client
             .projects()
             .locations_key_rings_crypto_keys_crypto_key_versions_patch(CryptoKeyVersion {
@@ -511,7 +517,7 @@ async fn main() {
         // Wait for transactions with the old current key to finish...
         if let Some(old_current) = old_current {
             log.log_with(
-                INFO,
+                loga::INFO,
                 "Waiting for a fixed period to allow outstanding requests to finish before deactivating old current version",
                 ea!(id = old_current.0.borrow().version_short_id),
             );
@@ -562,7 +568,7 @@ async fn main() {
                 keep_objects.push(o);
                 continue;
             }
-            log.log_with(INFO, "Deleting obsolete cert", ea!(id = o.0.borrow().version_short_id));
+            log.log_with(loga::INFO, "Deleting obsolete cert", ea!(id = o.0.borrow().version_short_id));
             storage_client
                 .objects()
                 .delete(&config.bucket, &urlencoding::encode(&o1.object_key))
@@ -581,7 +587,7 @@ async fn main() {
             if active_versions.contains(&v0.short_id) {
                 continue;
             }
-            log.log_with(INFO, "Deleting unrooted key version", ea!(id = v.0.borrow().short_id));
+            log.log_with(loga::INFO, "Deleting unrooted key version", ea!(id = v.0.borrow().short_id));
             kms_client
                 .projects()
                 .locations_key_rings_crypto_keys_crypto_key_versions_destroy(
@@ -598,7 +604,7 @@ async fn main() {
         for o in view.objects {
             let o0 = o.0.borrow();
             let log = &log.fork(ea!(id = o0.object_key));
-            log.log(INFO, "Adding cert to artifact bundle");
+            log.log(loga::INFO, "Adding cert to artifact bundle");
             let resp =
                 storage_client
                     .objects()
@@ -613,7 +619,7 @@ async fn main() {
             }
             let mut body =
                 String::from_utf8(
-                    hyper::body::to_bytes(resp.into_body())
+                    yup_oauth2::hyper::body::to_bytes(resp.into_body())
                         .await
                         .stack_context(log, "Error downloading cert body")?
                         .to_vec(),
