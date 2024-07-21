@@ -10,8 +10,8 @@ enum-as-inner = "=0.5.1"
 terrars = "0.1"
 terrars-andrewbaxter-dinker = { version = "0.1", features = ["image"] }
 terrars-andrewbaxter-localrun = { version = "0.1", features = ["data_run"] }
-serde_json = "1"
-certifier = { path = "../software/certifier" }
+certifier = { path = "../certifier" }
+serde_json = { workspace = true }
 terrars-dnsimple-dnsimple = { version = "0.1", features = ["zone_record"] }
 terrars-hectorj-googlesiteverification = { version = "0.1", features = [
     "dns",
@@ -38,6 +38,3 @@ terrars-integrations-github = { version = "0.1", features = [
     "data_actions_public_key",
     "actions_secret",
 ] }
-
-[patch.crates-io]
-terrars-hashicorp-google = { git = "https://github.com/andrewbaxter/terrars-hashicorp-google", rev = "f897fa593c1a777b66fcdd93728c00cba65e9823" }

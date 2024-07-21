@@ -49,7 +49,10 @@ use {
     },
     spaghettinuum::{
         interface::{
-            stored::identity::Identity,
+            stored::{
+                cert::v1::X509ExtSpagh,
+                identity::Identity,
+            },
             wire::certify::{
                 v1::CertResponse,
                 CertRequest,
@@ -58,7 +61,6 @@ use {
         ta_res,
         utils::{
             blob::{
-                Blob,
                 ToBlob,
             },
             tls_util::{
@@ -89,7 +91,7 @@ async fn generate_cert(
     now: DateTime<Utc>,
     identity: &Identity,
     spki_der: &[u8],
-    signature_ext: Option<Blob>,
+    signature_ext: Option<X509ExtSpagh>,
     kms_key_gcpid: &str,
     kms_client: &CloudKMS<yup_oauth2::hyper_rustls::HttpsConnector<yup_oauth2::hyper::client::HttpConnector>>,
 ) -> Result<CertResponse, loga::Error> {

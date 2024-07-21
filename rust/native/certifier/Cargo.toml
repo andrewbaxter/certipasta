@@ -1,0 +1,49 @@
+[package]
+name = "certifier"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+google-cloudkms1 = "5"
+google-storage1 = "5"
+google-hyper-rustls = { package = "hyper-rustls", version = "0.25.0", features = [
+    "webpki-tokio",
+] }
+yup-oauth2 = "9"
+governor = "0.6"
+spaghettinuum = { path = "../spaghettinuum/spaghettinuum", default-features = false }
+
+# Shared, hope workspace figures out the right version
+chrono = { version = "*", features = ["serde"] }
+der = "*"
+hyper-rustls = { version = "0.26", features = [] }
+hyper-util = { version = "*", features = [
+    "service",
+    "server-auto",
+    "http1",
+    "client-legacy",
+    "tokio",
+] }
+loga = "*"
+mime = "*"
+pem = "*"
+serde = { version = "*", features = ["derive"] }
+serde_json = { workspace = true }
+sha2 = "*"
+signature = "*"
+taskmanager = "*"
+tokio = { version = "*", features = ["macros", "rt", "fs"] }
+tokio-stream = { version = "*", features = ["sync", "net"] }
+x509-cert = { version = "*", features = ["builder"] }
+aargvark = { version = "*", features = ["serde_json"] }
+rand = "*"
+sec1 = "*"
+const-oid = "*"
+urlencoding = "*"
+http = "*"
+http-body-util = "*"
+http-body = "*"
+htwrap = "*"
+async-trait = "*"
