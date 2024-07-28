@@ -332,7 +332,7 @@ async fn main() {
             });
             let bind_addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 80));
             let log = log.clone();
-            tm.stream(
+            tm.critical_stream(
                 format!("API - Server ({})", bind_addr),
                 tokio_stream::wrappers::TcpListenerStream::new(
                     tokio::net::TcpListener::bind(&bind_addr).await.stack_context(&log, "Error binding to address")?,
@@ -349,9 +349,9 @@ async fn main() {
                             Ok(_) => (),
                             Err(e) => {
                                 log.log_err(loga::DEBUG, e.context("Error serving request"));
-                                return;
                             },
                         }
+                        return Ok(());
                     }
                 },
             );
