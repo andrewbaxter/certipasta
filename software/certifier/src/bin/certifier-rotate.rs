@@ -309,13 +309,13 @@ async fn main() {
                         log.log(loga::WARN, "Received obj missing name/id! Skipping...");
                         continue;
                     };
-                    let Some(
-                        version_short_id
-                    ) = object_key.strip_suffix(
-                        "/"
-                    ).unwrap_or(&object_key).strip_prefix(&format!("{}/", BUCKET_PREFIX_VERSION)) else {
-                        continue;
-                    };
+                    let Some(version_short_id) =
+                        object_key
+                            .strip_suffix("/")
+                            .unwrap_or(&object_key)
+                            .strip_prefix(&format!("{}/", BUCKET_PREFIX_VERSION)) else {
+                            continue;
+                        };
                     let metadata = v.metadata.unwrap_or_default();
                     let create_time =
                         v.time_created.stack_context(log, "Missing created time for object from gcp api")?;
@@ -623,7 +623,7 @@ async fn main() {
                         .await
                         .stack_context(log, "Error downloading cert body")?
                         .to_vec(),
-                ).stack_context(log, "Downloade cert PEM is invalid utf-8")?;
+                ).stack_context(log, "Downloaded cert PEM has invalid utf-8")?;
             if body.is_empty() {
                 return Err(log.err("Got empty cert body from server"));
             }

@@ -32,7 +32,15 @@ You can find the latest active cert bundle at <https://storage.googleapis.com/zl
 
 ### Updating the root certificates
 
-Do `sudo trust anchor --remove spaghettinuum_s.crt` to uninstall the old cert, then repeat the installation procedure.
+Remove the old cert first:
+
+1. Look up the cert with `trust list` and searching for `certipasta`
+
+2. Copy the first line that starts with `pkcs11:id=`
+
+3. Run `sudo trust anchor --remove 'pkcs11:id=...'` to uninstall the old cert
+
+Then install the new certificate as new.
 
 ## Installing root certificates on Windows
 
