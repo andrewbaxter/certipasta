@@ -10,18 +10,10 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-      - uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            software/certifier/target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
+      - uses: dtolnay/rust-toolchain@stable
       - run: |
           set -xeu
+          sudo apt-get -y install libsqlite3-dev
           export GOOGLE_APPLICATION_CREDENTIALS="$(pwd)/google_creds.json"
           cat > $GOOGLE_APPLICATION_CREDENTIALS << 'PRINCELY_EXCITED'
           ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
