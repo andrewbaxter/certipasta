@@ -1,4 +1,5 @@
-#!/usr/bin/bash -xeu
+#!/usr/bin/env bash
+set -xeu -o pipefail
 (
 	cd infra
 	RUST_BACKTRACE=1 cargo run
