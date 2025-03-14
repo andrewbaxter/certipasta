@@ -271,7 +271,7 @@ async fn main() {
                                     .status(StatusCode::TOO_MANY_REQUESTS)
                                     .body(
                                         htserve::responses::body_full(
-                                            "Per-ip request rate too large".to_string().into_bytes(),
+                                            "Per-ip request rate too high".to_string().into_bytes(),
                                         ),
                                     )
                                     .unwrap(),
@@ -294,7 +294,7 @@ async fn main() {
                                             .status(StatusCode::TOO_MANY_REQUESTS)
                                             .body(
                                                 htserve::responses::body_full(
-                                                    "Per-identity request rate too large".to_string().into_bytes(),
+                                                    "Per-identity request rate too high".to_string().into_bytes(),
                                                 ),
                                             )
                                             .unwrap(),
