@@ -35,7 +35,7 @@ taskmanager = "0.6"
 tokio = { version = "1", features = ["macros", "rt", "fs"] }
 tokio-stream = { version = "0.1", features = ["sync", "net"] }
 x509-cert = { version = "0.2", features = ["builder"] }
-aargvark = { version = "0.3", features = ["serde_json"] }
+aargvark = { version = "0.8", features = ["serde_json"] }
 rand = "0.8"
 sec1 = "0.7"
 const-oid = "0.9"
@@ -43,5 +43,5 @@ urlencoding = "2"
 http = "1"
 http-body-util = "0.1"
 http-body = "1"
-htwrap = "0.5"
+htwrap = "0.11"
 async-trait = "0.1"

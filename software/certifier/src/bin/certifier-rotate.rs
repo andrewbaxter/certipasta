@@ -1,7 +1,7 @@
 use {
     aargvark::{
         Aargvark,
-        AargvarkJson,
+        traits_impls::AargvarkJson,
     },
     certifier::{
         decide_sig,
@@ -167,8 +167,8 @@ async fn generate_version(
         // two within an hour)
         rand_serial(),
         x509_cert::time::Validity {
-            not_before: to_x509_time(now - Duration::hours(24)),
-            not_after: to_x509_time(now + rotation_period() * 2 + rotation_buffer() + sign_duration()),
+            not_before: to_x509_time((now - Duration::hours(24)).into()),
+            not_after: to_x509_time((now + rotation_period() * 2 + rotation_buffer() + sign_duration()).into()),
         },
         x509_cert::name::RdnSequence::from_str(&format!("CN={}", CA_FQDN)).unwrap(),
         ca_keyinfo.clone(),

@@ -1,7 +1,7 @@
 use {
     aargvark::{
+        traits_impls::AargvarkJson,
         Aargvark,
-        AargvarkJson,
     },
     async_trait::async_trait,
     certifier::{
@@ -38,9 +38,11 @@ use {
     http_body_util::BodyExt,
     htwrap::htserve::{
         self,
-        response_200_json,
-        response_400,
-        response_503,
+        responses::{
+            response_200_json,
+            response_400,
+            response_503,
+        },
     },
     loga::{
         ea,
@@ -60,9 +62,8 @@ use {
         },
         ta_res,
         utils::{
-            blob::{
-                ToBlob,
-            },
+            blob::ToBlob,
+            time_util::UtcSecs,
             tls_util::{
                 create_leaf_cert_der,
                 encode_pub_pem,
@@ -78,6 +79,7 @@ use {
         },
         num::NonZeroU32,
         sync::Arc,
+        time::SystemTime,
     },
     x509_cert::spki::SubjectPublicKeyInfoOwned,
     yup_oauth2::{
@@ -140,8 +142,8 @@ async fn generate_cert(
             requester_keyinfo,
             &format!("{}.s", identity.to_string()),
             signature_ext,
-            now,
-            now + sign_duration(),
+            now.into(),
+            (now + sign_duration()).into(),
             BuilderSigner {
                 key: BuilderPubKey(ca_keyinfo.clone()),
                 alg: sig_algorithm,
@@ -249,10 +251,13 @@ async fn main() {
             }
 
             #[async_trait]
-            impl htserve::Handler<htserve::Body> for State {
-                async fn handle(&self, args: htserve::HandlerArgs<'_>) -> Response<htserve::Body> {
+            impl htserve::handler::Handler<htserve::responses::Body> for State {
+                async fn handle(
+                    &self,
+                    args: htserve::handler::HandlerArgs<'_>,
+                ) -> Response<htserve::responses::Body> {
                     match async {
-                        ta_res!(Response < htserve:: Body >);
+                        ta_res!(Response < htserve:: responses:: Body >);
                         let body =
                             match serde_json::from_slice::<CertRequest>(&args.body.collect().await?.to_bytes()) {
                                 Ok(b) => b,
@@ -265,7 +270,9 @@ async fn main() {
                                 Response::builder()
                                     .status(StatusCode::TOO_MANY_REQUESTS)
                                     .body(
-                                        htserve::body_full("Per-ip request rate too large".to_string().into_bytes()),
+                                        htserve::responses::body_full(
+                                            "Per-ip request rate too large".to_string().into_bytes(),
+                                        ),
                                     )
                                     .unwrap(),
                             );
@@ -276,7 +283,9 @@ async fn main() {
                                 let Ok(req_params) = req.params.verify(&req.identity) else {
                                     return Ok(response_400("Invalid signature by identity"));
                                 };
-                                if now.signed_duration_since(req_params.stamp) > Duration::seconds(60) {
+                                let stamp = <UtcSecs as Into<SystemTime>>::into(req_params.stamp);
+                                let stamp = <SystemTime as Into<DateTime<Utc>>>::into(stamp);
+                                if now.signed_duration_since(stamp) > Duration::seconds(60) {
                                     return Ok(response_400("Request arrived long after timestamp"));
                                 }
                                 if self.ident_limit.check_key(&req.identity).is_err() {
@@ -284,7 +293,7 @@ async fn main() {
                                         Response::builder()
                                             .status(StatusCode::TOO_MANY_REQUESTS)
                                             .body(
-                                                htserve::body_full(
+                                                htserve::responses::body_full(
                                                     "Per-identity request rate too large".to_string().into_bytes(),
                                                 ),
                                             )
@@ -343,7 +352,7 @@ async fn main() {
                     async move {
                         match async {
                             ta_res!(());
-                            htserve::root_handle_http(&log, state, stream?).await?;
+                            htserve::handler::root_handle_http(&log, state, stream?).await?;
                             return Ok(());
                         }.await {
                             Ok(_) => (),
