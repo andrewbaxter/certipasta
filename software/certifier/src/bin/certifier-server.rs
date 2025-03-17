@@ -23,6 +23,7 @@ use {
         Decode,
         DecodePem,
     },
+    flowcontrol::ta_return,
     google_cloudkms1::{
         api::AsymmetricSignRequest,
         CloudKMS,
@@ -60,7 +61,6 @@ use {
                 CertRequest,
             },
         },
-        ta_res,
         utils::{
             blob::ToBlob,
             time_util::UtcSecs,
@@ -257,7 +257,7 @@ async fn main() {
                     args: htserve::handler::HandlerArgs<'_>,
                 ) -> Response<htserve::responses::Body> {
                     match async {
-                        ta_res!(Response < htserve:: responses:: Body >);
+                        ta_return!(Response < htserve:: responses:: Body >, loga::Error);
                         let body =
                             match serde_json::from_slice::<CertRequest>(&args.body.collect().await?.to_bytes()) {
                                 Ok(b) => b,
@@ -351,7 +351,7 @@ async fn main() {
                     let state = state.clone();
                     async move {
                         match async {
-                            ta_res!(());
+                            ta_return!((), loga::Error);
                             htserve::handler::root_handle_http(&log, state, stream?).await?;
                             return Ok(());
                         }.await {
