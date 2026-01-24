@@ -48,7 +48,7 @@ use {
         ResultContext,
     },
     mime::Mime,
-    spaghettinuum::utils::tls_util::{
+    spaghettinuum_native::utils::tls_util::{
         rand_serial,
         to_x509_time,
     },

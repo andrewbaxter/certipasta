@@ -1,18 +1,18 @@
 use {
     aargvark::{
-        traits_impls::AargvarkJson,
         Aargvark,
+        traits_impls::AargvarkJson,
     },
     async_trait::async_trait,
     certifier::{
-        decide_sig,
-        sign_duration,
         BuilderPubKey,
         BuilderSigner,
-        ServerConfig,
         CA_FQDN,
         ENV_SERVER_CONFIG,
+        ServerConfig,
         VERSION_STATE_ENABLED,
+        decide_sig,
+        sign_duration,
     },
     chrono::{
         DateTime,
@@ -25,8 +25,8 @@ use {
     },
     flowcontrol::ta_return,
     google_cloudkms1::{
-        api::AsymmetricSignRequest,
         CloudKMS,
+        api::AsymmetricSignRequest,
     },
     governor::{
         Quota,
@@ -46,23 +46,20 @@ use {
         },
     },
     loga::{
-        ea,
         Log,
         ResultContext,
+        ea,
     },
-    spaghettinuum::{
+    spaghettinuum::interface::identity::Identity,
+    spaghettinuum_native::{
         interface::{
-            stored::{
-                cert::v1::X509ExtSpagh,
-                identity::Identity,
-            },
+            stored::cert::v1::X509ExtSpagh,
             wire::certify::{
-                v1::CertResponse,
                 CertRequest,
+                v1::CertResponse,
             },
         },
         utils::{
-            blob::ToBlob,
             time_util::UtcSecs,
             tls_util::{
                 create_leaf_cert_der,
@@ -83,9 +80,9 @@ use {
     },
     x509_cert::spki::SubjectPublicKeyInfoOwned,
     yup_oauth2::{
-        authenticator::ApplicationDefaultCredentialsTypes,
         ApplicationDefaultCredentialsAuthenticator,
         ApplicationDefaultCredentialsFlowOpts,
+        authenticator::ApplicationDefaultCredentialsTypes,
     },
 };
 
@@ -161,8 +158,7 @@ async fn generate_cert(
                         .stack_context(log, "Error signing new CA cert CSR")?
                         .1
                         .signature
-                        .stack_context(log, "Signing request response missing signature data")?
-                        .blob(),
+                        .stack_context(log, "Signing request response missing signature data")?,
                 )
             },
             CA_FQDN,
@@ -305,7 +301,7 @@ async fn main() {
                                         &generate_cert(
                                             now,
                                             &req.identity,
-                                            &req_params.spki_der,
+                                            &req_params.spki_der.0,
                                             req_params.sig_ext,
                                             &self.kms_key_gcpid,
                                             &self.kms_client,
