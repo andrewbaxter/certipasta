@@ -2149,9 +2149,9 @@ checksum = "df3b46402a9d5adb4c86a0cf463f42e19994e3ee891101b1841f30a545cb49a9"
 
 [[package]]
 name = "htwrap"
-version = "0.11.9"
+version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "90ffcb47970c8366287ae2bf9dc563691bd0e4118253c22b30d60d9980619adc"
+checksum = "e63e01aee4b9c2b7a1b38d4414f734f051ae9afa16672fea01ecf4481a1df9d1"
 dependencies = [
  "async-stream",
  "async-trait",

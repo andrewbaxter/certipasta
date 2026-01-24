@@ -44,7 +44,7 @@ urlencoding = "2"
 http = "1"
 http-body-util = "0.1"
 http-body = "1"
-htwrap = "0.11"
+htwrap = "0.15"
 async-trait = "0.1"
 flowcontrol = "0.2"
 
