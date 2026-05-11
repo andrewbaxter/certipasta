@@ -53,6 +53,8 @@ pub struct RotateConfig {
 #[derive(Serialize, Deserialize)]
 pub struct ServerConfig {
     pub key_gcpid: String,
+    pub cert_bucket: String,
+    pub log_bucket: String,
 }
 
 pub fn sign_duration() -> Duration {

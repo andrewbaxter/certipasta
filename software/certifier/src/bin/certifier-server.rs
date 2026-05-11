@@ -14,6 +14,7 @@ use {
         decide_sig,
         sign_duration,
     },
+    http::header::CONTENT_TYPE,
     chrono::{
         DateTime,
         Duration,
@@ -231,6 +232,8 @@ async fn main() {
             struct State {
                 log: Log,
                 kms_key_gcpid: String,
+                cert_bucket: String,
+                log_bucket: String,
                 kms_client: CloudKMS<
                     yup_oauth2::hyper_rustls::HttpsConnector<yup_oauth2::hyper::client::HttpConnector>,
                 >,
@@ -254,6 +257,38 @@ async fn main() {
                 ) -> Response<htserve::responses::Body> {
                     match async {
                         ta_return!(Response < htserve:: responses:: Body >, loga::Error);
+                        if args.head.method == http::Method::GET {
+                            let html = format!(
+                                concat!(
+                                    "<!DOCTYPE html>\n",
+                                    "<html>\n",
+                                    "<head><title>Certipasta</title>",
+                                    "<style>body{{font-family:sans-serif;max-width:800px;margin:40px auto;padding:0 20px}}</style>",
+                                    "</head>\n",
+                                    "<body>\n",
+                                    "<h1>Certipasta</h1>\n",
+                                    "<p>TLS certificate authority for Spaghettinuum <code>.s</code> domains. ",
+                                    "See the <a href=\"https://github.com/andrewbaxter/certipasta\">GitHub repository</a> for details.</p>\n",
+                                    "<h2>Root Certificate Bundle</h2>\n",
+                                    "<p>Download and install to trust certipasta-issued certificates:</p>\n",
+                                    "<p><a href=\"https://storage.googleapis.com/{cert_bucket}/spaghettinuum_s.crt\">spaghettinuum_s.crt</a></p>\n",
+                                    "<h2>Certificate Rotation Logs</h2>\n",
+                                    "<p>Logs from annual certificate rotation runs:</p>\n",
+                                    "<p><a href=\"https://storage.googleapis.com/storage/v1/b/{log_bucket}/o\">Browse rotation logs (JSON)</a></p>\n",
+                                    "</body>\n",
+                                    "</html>\n",
+                                ),
+                                cert_bucket = self.cert_bucket,
+                                log_bucket = self.log_bucket,
+                            );
+                            return Ok(
+                                Response::builder()
+                                    .status(StatusCode::OK)
+                                    .header(CONTENT_TYPE, "text/html; charset=utf-8")
+                                    .body(htserve::responses::body_full(html.into_bytes()))
+                                    .unwrap(),
+                            );
+                        }
                         let body =
                             match serde_json::from_slice::<CertRequest>(&args.body.collect().await?.to_bytes()) {
                                 Ok(b) => b,
@@ -323,6 +358,8 @@ async fn main() {
             let state = Arc::new(State {
                 log: log.fork(ea!(sys = "http")),
                 kms_key_gcpid: config.key_gcpid,
+                cert_bucket: config.cert_bucket,
+                log_bucket: config.log_bucket,
                 kms_client: kms_client,
                 ip_limit: RateLimiter::keyed(
                     Quota::with_period(Duration::hours(24).to_std().unwrap())
