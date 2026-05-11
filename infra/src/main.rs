@@ -3,8 +3,7 @@ use {
         env,
         fs::{
             self,
-            read,
-        },
+            },
         path::PathBuf,
     },
     certifier::{
@@ -99,7 +98,7 @@ fn main() {
         // Input vars
         let dnsimple_token = &BuildVariable { tf_id: "dnsimple_token".into() }.build(stack).set_sensitive(true);
         let github_token = &BuildVariable { tf_id: "github_token".into() }.build(stack).set_sensitive(true);
-        let google_creds = String::from_utf8(read(tf_root.join("google_creds.json")).unwrap()).unwrap();
+        let google_creds = &BuildVariable { tf_id: "google_creds".into() }.build(stack).set_sensitive(true);
 
         // Auth
         BuildProviderLocalrun {}.build(stack);
